@@ -145,6 +145,90 @@ function parseSignedOutput(text) {
   );
 }
 
+const DIMENSION_ORDER = [
+  'structure',
+  'secrets',
+  'scope',
+  'intent',
+  'prompt_drift',
+  'api_contract',
+  'documentation',
+  'escalation',
+];
+
+const VERDICT_EMOJI = {
+  pass: ':white_check_mark:',
+  fail: ':x:',
+  skip: ':white_circle:',
+  human_review_required: ':bell:',
+};
+
+function renderCommentFromOutput(output) {
+  // Build a deterministic markdown comment from the structured signed-output
+  // payload. Used when the agent returned a valid JSON object without a
+  // populated `comment_markdown`. Keeps PR comments useful even when the
+  // model under-renders the prose section.
+  const lines = [];
+  const verdict = output.verdict ?? 'escalate';
+  const verdictBadge =
+    verdict === 'pass' ? ':white_check_mark: PASS' :
+    verdict === 'fail' ? ':x: FAIL' : ':bell: ESCALATE';
+  lines.push(`### ${verdictBadge}`);
+  lines.push('');
+
+  if (output.human_review_required) {
+    lines.push('**Human review required.**');
+    if (Array.isArray(output.human_review_reasons) && output.human_review_reasons.length > 0) {
+      for (const reason of output.human_review_reasons) {
+        lines.push(`- ${reason}`);
+      }
+    }
+    lines.push('');
+  }
+
+  if (output.dimensions && typeof output.dimensions === 'object') {
+    const rows = [];
+    DIMENSION_ORDER.forEach((dim, idx) => {
+      const d = output.dimensions[dim];
+      if (!d) return;
+      const v = d.verdict ?? '?';
+      const emoji = VERDICT_EMOJI[v] ?? '';
+      const notes = (d.notes ?? '').replace(/\|/g, '\\|').slice(0, 200);
+      rows.push(`| ${idx + 1} | ${dim} | ${emoji} ${v} | ${notes} |`);
+    });
+    if (rows.length > 0) {
+      lines.push('### Dimensions');
+      lines.push('');
+      lines.push('| # | Dimension | Verdict | Notes |');
+      lines.push('|---|-----------|---------|-------|');
+      lines.push(...rows);
+      lines.push('');
+    }
+  }
+
+  if (Array.isArray(output.blocking_issues) && output.blocking_issues.length > 0) {
+    lines.push('### Blocking issues');
+    lines.push('');
+    for (const issue of output.blocking_issues) {
+      const loc = issue.file
+        ? (issue.line ? `\`${issue.file}:${issue.line}\`` : `\`${issue.file}\``)
+        : '';
+      lines.push(`- **${issue.dimension ?? '?'}** ${loc} — ${issue.rule ?? ''}`);
+      if (issue.evidence) lines.push(`  - evidence: ${issue.evidence}`);
+      if (issue.fix) lines.push(`  - fix: ${issue.fix}`);
+    }
+    lines.push('');
+  }
+
+  if (lines.length === 1) {
+    // Output had nothing beyond the verdict; emit an honest minimal comment.
+    lines.push('');
+    lines.push('_(Agent returned a structured verdict but no per-dimension detail. See the workflow artifact for the full signed-output JSON.)_');
+  }
+
+  return lines.join('\n');
+}
+
 function buildUserMessage({ metadata, diff, antiDriftTemplate, protectedHint }) {
   return [
     `<pr_metadata>\n${JSON.stringify(metadata, null, 2)}\n</pr_metadata>`,
@@ -301,11 +385,15 @@ async function main() {
     ];
   }
 
+  // Always render a useful comment. The agent sometimes returns the
+  // dimensions object without a comment_markdown; we render one from
+  // the structured output so PRs never end up with `_(empty comment)_`.
+  if (!signed.output.comment_markdown || signed.output.comment_markdown.trim() === '') {
+    signed.output.comment_markdown = renderCommentFromOutput(signed.output);
+  }
+
   fs.writeFileSync(outputPath, JSON.stringify(signed, null, 2));
-  fs.writeFileSync(
-    commentPath,
-    signed.output.comment_markdown ?? '_(empty comment)_'
-  );
+  fs.writeFileSync(commentPath, signed.output.comment_markdown);
   fs.writeFileSync(verdictPath, signed.output.verdict ?? 'escalate');
 }
 
