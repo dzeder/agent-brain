@@ -374,6 +374,38 @@ async function main() {
         },
       };
 
+  // Some agent outputs double-nest the review: signed.output ends up as a
+  // metadata wrapper (schema, message_type, agent_id, version,
+  // comment_markdown) with the actual review at signed.output.output. The
+  // prompt's <output_format> example arguably invites this — the model
+  // mistakes "use the signed-output schema with message_type: output" for
+  // "wrap the review in a metadata envelope". Detect and unwrap so verdict
+  // / dimensions / blocking_issues sit where the renderer expects them.
+  if (
+    signed.output &&
+    typeof signed.output === 'object' &&
+    !signed.output.verdict &&
+    signed.output.output &&
+    typeof signed.output.output === 'object' &&
+    signed.output.output.verdict
+  ) {
+    const outerCommentMarkdown = signed.output.comment_markdown;
+    const inner = signed.output.output;
+    signed.output = inner;
+    // Prefer the agent's outer comment_markdown only if it's substantive
+    // (>120 chars). The agent often emits a bare "### :bell: ESCALATE"
+    // header at the wrapper level when the real review is nested; in that
+    // case we want the renderer to build a useful comment from the inner
+    // dimensions/issues instead.
+    if (
+      typeof outerCommentMarkdown === 'string' &&
+      outerCommentMarkdown.trim().length >= 120 &&
+      !signed.output.comment_markdown
+    ) {
+      signed.output.comment_markdown = outerCommentMarkdown;
+    }
+  }
+
   // Apply the recursion rule as a backstop: if the diff touched a protected
   // path, force escalate regardless of agent verdict.
   if (protectedHint.isProtected) {
