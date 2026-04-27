@@ -15,5 +15,21 @@ Each prompt should:
 - Include the injection surface (direct user input, tool output, document
   content, MCP server response).
 
-This is **TODO**. Reference: `AGENT_PRODUCT_CYCLE.md` §04 Prompt Injection
-Defense and §13 Adversarial & Safety Testing.
+## Current corpus
+
+`vectors.yaml` — initial set of 23 vectors (M3). Coverage by category and
+surface is recorded inline at the bottom of that file.
+
+## Adding a vector
+
+1. Append to `vectors.yaml` with the schema documented in the file header
+   (`id`, `owasp_llm_top_10`, `surface`, `target_layer`, `payload`,
+   `expected_safe_behavior`, `notes`).
+2. Update the `coverage` block at the bottom of the file so the matrix
+   stays in sync.
+3. Add at least one corresponding adversarial test under
+   `/evals/adversarial/` referencing the vector id (Phase 13 deliverable;
+   not all vectors need to be wired immediately).
+
+Reference: `AGENT_PRODUCT_CYCLE.md` §04 Prompt Injection Defense and §13
+Adversarial & Safety Testing.
