@@ -1,13 +1,20 @@
 # Eval Framework Config
 
-[Braintrust](https://braintrustdata.com) or [Promptfoo](https://promptfoo.dev)
-are the two options per `AGENT_PRODUCT_CYCLE.md` §13 Evaluation & QA. The
-chosen framework's config files (golden dataset references, scoring config,
-LLM-as-judge model selection at `claude-opus-4-7`) live in this directory.
+[Promptfoo](https://promptfoo.dev) is the chosen eval framework per
+`AGENT_PRODUCT_CYCLE.md` §13. Decision recorded: see ADR forthcoming
+(Milestone 2).
 
-This is **TODO** until the first golden dataset is built. Per §13, every
-agent needs a minimum of 50 representative examples in
-`/evals/<agent-id>/golden/` before optimization begins, and a baseline score
-must be established before any prompt change ships through the PR Anti-Drift
-gate. See §13 for the full setup requirements (eval dimensions, layer-specific
-scoring, adversarial coverage, human eval rubrics).
+Per-agent Promptfoo configs live alongside the agent's tests:
+
+- `/evals/ceo/promptfooconfig.yaml`
+- `/evals/base-manager/promptfooconfig.yaml`
+- `/evals/base-worker/promptfooconfig.yaml`
+
+The shared LLM-as-judge prompt is `/evals/judge-prompts/rubric-judge.txt`.
+The shared prompt-loader function is `/evals/lib/build-prompt.js`.
+
+`MODEL_EVAL` is `claude-opus-4-7`; agent runtimes are pinned in each
+config. Run instructions and cost expectations are in `/evals/README.md`.
+
+This directory is intentionally thin — the framework plumbing lives next to
+the rubrics and goldens it serves, not in a separate config silo.

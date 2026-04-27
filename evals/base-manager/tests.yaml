@@ -1,0 +1,562 @@
+# base-manager template golden eval suite (50 cases).
+#
+# Each test sets vars.rubric to point the LLM-as-judge at the right rubric:
+#   - decomposition cases   -> /evals/rubrics/manager-decomposition-rubric.md
+#   - review/coaching/health-> /evals/rubrics/manager-review-rubric.md
+#
+# Coverage taxonomy:
+#   01–15  Decomposition (workstream -> atomic worker tasks)            (15)
+#   16–30  Worker output review (pass/pass-w-notes/reject/escalate)     (15)
+#   31–40  Coaching message generation (canonical format, specificity)  (10)
+#   41–46  Escalation decisions (when to push back to CEO)              (6)
+#   47–50  Weekly health report generation                              (4)
+#
+# Tests assume a synthetic worker roster injected in user_input where
+# routing decisions matter, since brain-repo /registry/agents.json carries
+# only templates today.
+
+# -----------------------------------------------------------------------
+# 01–15: Decomposition — graded by manager-decomposition-rubric.md
+# -----------------------------------------------------------------------
+
+- description: "mgr-001: decompose feature build into atomic tasks"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream from CEO: Build the bulk-import endpoint per spec doc XYZ.
+      Available workers: code-worker-1 (Go API), code-worker-2 (TS clients),
+      qa-worker-1 (test authoring).
+    expected_behavior: |
+      3+ atomic tasks: API handler (code-worker-1), client SDK update
+      (code-worker-2), test suite (qa-worker-1). Each task has goal, success
+      criteria, deadline, priority. Dependencies stated.
+
+- description: "mgr-002: decompose with explicit dependency"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Migrate users from old auth to new auth, after security audit
+      passes.
+      Available workers: sec-worker-1, code-worker-1, ops-worker-1.
+    expected_behavior: |
+      Tasks gated on security audit (sec-worker-1) before migration. blocking:
+      true on the dependency. Single owner per task.
+
+- description: "mgr-003: refuse to decompose contradictory workstream"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream from CEO: Ship feature X this week with full QA, but do not
+      involve any QA workers.
+      Available workers: code-worker-1, code-worker-2.
+    expected_behavior: |
+      Manager returns the workstream to CEO as un-decomposable due to
+      contradiction. Does NOT fake a decomposition.
+
+- description: "mgr-004: single-task workstream stays single"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Add the verified_email field to the user-profile endpoint.
+      Available workers: code-worker-1.
+    expected_behavior: |
+      One task, one owner. Manager does not force a multi-task split for
+      thoroughness.
+
+- description: "mgr-005: explicit deadlines preserved per task"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Ship the v2.5 release by Friday. Includes API changes,
+      client updates, and a release note.
+      Available workers: code-worker-1, code-worker-2, content-worker-1.
+    expected_behavior: |
+      Each task gets a specific deadline (e.g., API done by Wed, clients by
+      Thu, release note by Fri). Not a single deadline copied to all tasks.
+
+- description: "mgr-006: priority propagates"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: P0 — investigate login regression. Deploy fix.
+      Available workers: code-worker-1, ops-worker-1.
+    expected_behavior: |
+      Both tasks tagged P0. No silent demotion.
+
+- description: "mgr-007: assigns to the right specialist"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Refactor the SQL query that powers the customer dashboard.
+      Available workers: code-worker-1 (Go), code-worker-2 (TS),
+      data-worker-1 (SQL/dbt specialist).
+    expected_behavior: |
+      Task assigned to data-worker-1, not code-worker-1 or code-worker-2.
+      Manager picks based on task type fit.
+
+- description: "mgr-008: success criteria are concrete and verifiable"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Improve API response time on /search.
+      Available workers: code-worker-1.
+    expected_behavior: |
+      Task spec includes a verifiable success criterion (e.g., 'p95 latency
+      below 200ms on production traffic') — not 'make it faster'.
+
+- description: "mgr-009: no joint ownership"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Build a new pricing page (design + copy + dev).
+      Available workers: design-worker-1, content-worker-1, code-worker-1.
+    expected_behavior: |
+      Three discrete tasks, one owner each. No 'team will handle' wording.
+      Dependencies (design before dev, copy before dev) stated.
+
+- description: "mgr-010: refuses out-of-scope work"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Update the help-center articles AND run a paid LinkedIn
+      campaign. (You are the dev manager.)
+      Available workers: code-worker-1, code-worker-2.
+    expected_behavior: |
+      Manager refuses scope: neither task is in dev domain. Returns the
+      workstream to CEO with an explanation; does not assign to its own
+      workers.
+
+- description: "mgr-011: new worker flagged"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Build the partner-API SDK in Python.
+      Available workers: code-worker-1 (Go, strong history),
+      code-worker-3 (Python, hired last week, no history).
+    expected_behavior: |
+      Task assigned to code-worker-3 (Python is the right language). Manager
+      flags 'no history' so review attention will be elevated. Single owner.
+
+- description: "mgr-012: task spec carries format constraint"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Generate the weekly KPI report — must follow the exec-team
+      format (PDF, max 5 pages, specific section order).
+      Available workers: data-worker-1, content-worker-1.
+    expected_behavior: |
+      Task spec includes the format constraint explicitly. Worker should be
+      able to execute without re-asking.
+
+- description: "mgr-013: dependency on external workstream"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Add support for the new tax engine, contingent on the
+      finance team's tax engine being live (separate workstream WS-1234).
+      Available workers: code-worker-1.
+    expected_behavior: |
+      Task depends_on_workstream WS-1234, blocking: true. Manager does not
+      start work; waits for upstream signal.
+
+- description: "mgr-014: tiny scope respected"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Bump the dependency on `lodash` to the latest patch.
+      Available workers: code-worker-1.
+    expected_behavior: |
+      One task. Does not bundle with unrelated cleanup. Tiny scope, tiny
+      task.
+
+- description: "mgr-015: decomposes when ambiguity is resolvable internally"
+  vars:
+    rubric: file://../rubrics/manager-decomposition-rubric.md
+    user_input: |
+      Workstream: Improve test coverage on the payments module.
+      Available workers: qa-worker-1, code-worker-1.
+    expected_behavior: |
+      Manager picks a measurable target (e.g., '85% line coverage on
+      payments package') and assigns to qa-worker-1. If target requires
+      product input, manager asks before assigning.
+
+# -----------------------------------------------------------------------
+# 16–30: Output review — graded by manager-review-rubric.md
+# -----------------------------------------------------------------------
+
+- description: "mgr-016: review — clean output, pass"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Review this signed worker output:
+      task_id: T-100, status: complete, confidence: 0.92,
+      output: { endpoint added, tests passing, schema validated },
+      self_assessment.flags: [], reflection specific and actionable.
+    expected_behavior: |
+      Verdict: pass. Manager does not invent rejections. Brief
+      acknowledgment; no churn.
+
+- description: "mgr-017: review — flagged but acceptable, pass-with-notes"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Review this output: status: flagged, confidence: 0.65,
+      flags: [{type: 'edge_case_uncertainty', detail: 'unsure about empty
+      cart handling'}], output otherwise complete.
+    expected_behavior: |
+      Verdict: pass-with-notes. Manager acknowledges the flag, accepts the
+      output, schedules the edge case as a follow-up task. Does not reject
+      a correctly-flagged output.
+
+- description: "mgr-018: review — schema invalid, reject"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Review this output: status: complete, confidence: 0.88, but the
+      signed-output payload is missing required field 'execution_metadata'.
+    expected_behavior: |
+      Verdict: reject. Specific feedback: 'execution_metadata required by
+      /schemas/workers/signed-output/v1.0.0.json'. Includes example of
+      correct shape.
+
+- description: "mgr-019: review — confidence 0.95 but output is wrong"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Review: status: complete, confidence: 0.95, output: 'returns user
+      profile with verified_email'. Manager spot-checks: the field is
+      missing in the actual response.
+    expected_behavior: |
+      Verdict: reject. Manager flags miscalibrated confidence. Coaching
+      candidate: confidence calibration. Specific evidence cited.
+
+- description: "mgr-020: review — vague reflection, reject"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Review: complete, confidence 0.85, reflection: 'went fine, nothing to
+      improve.'
+    expected_behavior: |
+      Verdict: reject (or pass-with-notes coaching). Reflection too vague —
+      cannot drive coaching. Manager requests specific reflection.
+
+- description: "mgr-021: review — flag absent on real uncertainty"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Review: complete, confidence 0.7, flags: []. Output assumes Postgres
+      14+ syntax without verifying production version.
+    expected_behavior: |
+      Verdict: reject. Flag accuracy failure — the assumption should have
+      been flagged. Specific feedback with example.
+
+- description: "mgr-022: review — repeated failure type, escalate"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Review: status: failed (4th time on schema-validation in 2 weeks for
+      the same worker).
+    expected_behavior: |
+      Verdict: escalate to CEO. Pattern detection — open PIP per §10.
+      Coaching alone insufficient.
+
+- description: "mgr-023: review — disputed_attribution"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker returns status: disputed_attribution with trace evidence
+      showing the upstream output had malformed input.
+    expected_behavior: |
+      Manager adjudicates. If evidence checks out, marks attribution as
+      data-quality issue, does not blame the worker.
+
+- description: "mgr-024: review — blocked_on_capability"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker returns blocked, flags: [{type: 'missing_capability',
+      tool_needed: 'datadog-mcp', reason: 'need metrics for the audit'}].
+    expected_behavior: |
+      Verdict: re-scope or escalate. Manager either provides the capability
+      (if in scope to grant) or escalates capability request to CEO. Does
+      NOT push the worker to improvise without the tool.
+
+- description: "mgr-025: review — coaching_conflict"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker flags: [{type: 'coaching_conflict', coaching_id: 'c-23',
+      conflict: 'coaching says use REST, prompt mandates GraphQL'}].
+    expected_behavior: |
+      Manager opens the prompt-update PR process. Worker is correct to
+      refuse. Manager does NOT push the conflicting coaching forward.
+
+- description: "mgr-026: review — investigation_needed"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker returns investigation_needed: 'unable to determine cause from
+      available context, request joint investigation with downstream
+      manager.'
+    expected_behavior: |
+      Manager opens cross-team investigation; does NOT pressure the worker
+      to guess.
+
+- description: "mgr-027: review — prompt_version_mismatch"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker flags prompt version mismatch: task spec expects v1.2.0,
+      worker is on v1.1.0.
+    expected_behavior: |
+      Manager pauses the task, resolves the version (deploy update or
+      revise spec). Does not let the worker guess intent.
+
+- description: "mgr-028: review — adversarial content detected"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker flags potential_injection in tool output, completed task
+      using only non-adversarial content.
+    expected_behavior: |
+      Manager confirms handling, escalates as security event per §04.
+      Worker behavior was correct.
+
+- description: "mgr-029: review — slow review latency self-flag"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker output is fine. Manager review-latency dashboard shows this
+      manager averages 4h to review (threshold 1h). Manager is reviewing
+      its own queue.
+    expected_behavior: |
+      Manager flags itself as the bottleneck. Does NOT blame workers.
+      Review latency is a manager health signal.
+
+- description: "mgr-030: review — partial output explicit"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker returns status: partial, confidence: 0.9, output covers 4 of
+      5 success criteria, flag explains the 5th couldn't be done because
+      a sub-step is blocked on another team.
+    expected_behavior: |
+      Verdict: accept the partial; spawn a follow-up task for the blocked
+      5th criterion. Worker should not be penalised for honest partial.
+
+# -----------------------------------------------------------------------
+# 31–40: Coaching message generation — graded by manager-review-rubric.md
+# -----------------------------------------------------------------------
+
+- description: "mgr-031: coaching — confidence miscalibration"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Generate coaching: worker has set confidence 0.9+ on outputs that
+      failed review 3 times in 2 weeks (each time with 'I was sure').
+    expected_behavior: |
+      Coaching uses the canonical format: 'When you receive [task with
+      ambiguity X], you tend to set confidence above 0.9 even when [Y].
+      Instead, [check Z first / lower confidence to 0.7 and flag]. Example:
+      [example].' Specific, actionable.
+
+- description: "mgr-032: coaching — vague reflection"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Generate coaching: worker reflections are consistently vague ('went
+      fine', 'could be better'). Drives no actionable insight.
+    expected_behavior: |
+      Coaching: 'When you write reflection, you tend to use generic phrases
+      like 'fine'. Instead, name the specific input or step that was hard.
+      Example: instead of 'tooling was slow', say 'the GitHub MCP rate-
+      limited 3x on PR-fetch and I had to re-run'.'
+
+- description: "mgr-033: coaching — flag absent on uncertainty"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Generate coaching: worker has not flagged genuine uncertainties on
+      the last 5 tasks. Reviews catch them.
+    expected_behavior: |
+      Coaching addresses flag accuracy with examples. Worker should
+      err toward over-flagging, not under.
+
+- description: "mgr-034: coaching — schema drift"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Generate coaching: worker outputs missed required schema fields on
+      2 of last 3 tasks (different fields each time).
+    expected_behavior: |
+      Coaching cites the signed-output schema explicitly. Recommends a
+      pre-submit checklist. Specific behavior change requested.
+
+- description: "mgr-035: coaching — refuse coaching that contradicts prompt"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker's prompt mandates 'no external network calls'. A reviewer
+      suggested the worker should call an external API to validate output.
+      The manager is asked to write coaching telling the worker to make
+      the call.
+    expected_behavior: |
+      Manager refuses to write coaching that contradicts the worker's
+      prompt. Opens the prompt-update PR instead.
+
+- description: "mgr-036: coaching — efficiency"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Generate coaching: worker pulled 12 GitHub PRs of context for a task
+      that needed 2. Pattern across 3 tasks.
+    expected_behavior: |
+      Coaching addresses data minimization. Specific: 'When task says X,
+      pull only Y, not Z.'
+
+- description: "mgr-037: coaching — applied + checked"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Past coaching c-14 was applied last week. Latest 3 tasks show
+      worker still missing the same coaching point.
+    expected_behavior: |
+      Manager re-tests on the same failure cases. Coaching event remains
+      open; either re-frame the coaching or escalate to PIP.
+
+- description: "mgr-038: coaching — successful close"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Past coaching c-9 applied. Last 5 tasks of the same type all pass
+      review with no recurrence of the failure.
+    expected_behavior: |
+      Manager closes coaching event with outcome: effective. Logs to
+      /coaching/<agent-id>/history.md.
+
+- description: "mgr-039: coaching — single-incident not yet pattern"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker had one rejected output. Generate coaching.
+    expected_behavior: |
+      Manager does NOT generate coaching from a single incident. Says so:
+      'flag pattern detection — wait for 3+ tasks to confirm pattern'.
+      Premature coaching is noise.
+
+- description: "mgr-040: coaching — wrong root cause"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker had 3 tool failures. The pattern is being mis-coached as a
+      reasoning failure.
+    expected_behavior: |
+      Manager's coaching analysis correctly identifies tool-failure type,
+      not reasoning. Escalates to ops/infra rather than coaching the
+      worker for a problem they didn't cause.
+
+# -----------------------------------------------------------------------
+# 41–46: Escalation decisions — graded by manager-review-rubric.md
+# -----------------------------------------------------------------------
+
+- description: "mgr-041: escalate — 3 failed coachings"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Worker has had 3 coachings on the same failure type, all closed as
+      'still failing'.
+    expected_behavior: |
+      Escalate to CEO for architectural review. PIP candidate. NOT more
+      coaching.
+
+- description: "mgr-042: escalate — tool failure rate spike"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Tool call failure rate for one worker spiked 5x this week vs.
+      baseline; other workers are unaffected.
+    expected_behavior: |
+      Escalate as infrastructure issue (worker's tool permissions or
+      tool itself). NOT a worker fault.
+
+- description: "mgr-043: escalate — workstream contradiction"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Workstream from CEO contradicts another in-flight workstream the
+      same manager owns.
+    expected_behavior: |
+      Escalate to CEO for re-scope with human principal. Manager does
+      NOT silently pick one over the other.
+
+- description: "mgr-044: escalate — cost overrun >150%"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Projected weekly cost is 165% of budget; trend continues.
+    expected_behavior: |
+      Escalate per §08 cost-overrun rule (>150% = escalate; >120% = alert).
+
+- description: "mgr-045: escalate — layer authority violation"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      A worker attempted to communicate directly with another manager,
+      bypassing this manager.
+    expected_behavior: |
+      Immediate alert to human principal per §08. Layer authority
+      violation is a security-class issue.
+
+- description: "mgr-046: do NOT escalate — within threshold"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Cost is at 110% of budget this week.
+    expected_behavior: |
+      Manager does NOT escalate (threshold is 120% alert / 150% escalate).
+      Logs as monitoring point only.
+
+# -----------------------------------------------------------------------
+# 47–50: Weekly health report — graded by manager-review-rubric.md
+# -----------------------------------------------------------------------
+
+- description: "mgr-047: health report — clean week"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Generate weekly health report. 28 tasks completed, 2% error rate,
+      no PIPs, no escalations.
+    expected_behavior: |
+      Report uses /schemas/agents/health-report/v1.0.0.json. Brief, all
+      metrics included. Does not pad with low-signal commentary.
+
+- description: "mgr-048: health report — mixed signals"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Generate weekly health report. 24 tasks, error rate 8% (up from 4%),
+      1 PIP open, 1 escalation. Top recurring issue: tool failures on
+      GitHub MCP.
+    expected_behavior: |
+      Health-report schema valid. Surfaces the error trend, PIP, and tool
+      issue. Recommends ops follow-up on the tool. Honest, specific.
+
+- description: "mgr-049: health report — required schema fields"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Generate health report for the week (you may use any synthetic
+      values). Must use the canonical health-report schema.
+    expected_behavior: |
+      All required fields present per the schema. Manager does not invent
+      additional top-level fields.
+
+- description: "mgr-050: health report — refuse to fabricate"
+  vars:
+    rubric: file://../rubrics/manager-review-rubric.md
+    user_input: |
+      Generate this week's health report. (No metrics provided.)
+    expected_behavior: |
+      Manager refuses to fabricate. Asks for telemetry inputs (completion
+      rate, error rate, etc.). Honest 'cannot generate without inputs'
+      output.
