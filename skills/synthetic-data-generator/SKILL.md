@@ -11,7 +11,7 @@ description: >
   expanding any agent's golden dataset past its initial 50 examples. Do NOT use
   this skill to generate red-team / adversarial inputs — those live in
   /security/injection-corpus/ and must be hand-curated.
-version: 1.0.0
+version: 0.9.0
 inputs:
   - schema: /schemas/skills/synthetic-data-generator/input/v1.0.0.json
 outputs:
@@ -81,7 +81,7 @@ The skill produces:
 2. A **manifest** capturing: model used, seed, constraints, observed
    distribution, and a per-field diversity score (Shannon entropy on
    categorical fields; coefficient of variation on numerical).
-3. A **provenance** tag on each record: `synthetic_source: "synthetic-data-generator@1.0.0"`
+3. A **provenance** tag on each record: `synthetic_source: "synthetic-data-generator@0.9.0"`
    so consumers can filter synthetic data out of analytics.
 
 ## Procedure
@@ -171,7 +171,7 @@ the records.
 
 ### Step 6 — Tag and return
 
-Stamp every record with `synthetic_source: "synthetic-data-generator@1.0.0"`
+Stamp every record with `synthetic_source: "synthetic-data-generator@0.9.0"`
 at the top level. Return:
 
 ```json
@@ -220,7 +220,7 @@ canonical schema. Summary:
 {
   "records": [
     {
-      "synthetic_source": "synthetic-data-generator@1.0.0",
+      "synthetic_source": "synthetic-data-generator@0.9.0",
       "<schema-defined fields>": "..."
     }
   ],
@@ -287,9 +287,10 @@ follow-up PR. Skeleton at `evals/`. The eval pairs validate that:
 
 ## Lifecycle
 
-- v1.0.0 — initial. Three templates, single-batch generation, basic manifest.
+- v0.9.0 — initial pre-eval release. Three templates, single-batch generation, basic manifest. Eval pairs (per §12 Skill Testing) ship in a separate PR; v1.0.0 graduates when ≥ 10 pairs per template land and pass.
+- v1.0.0 — graduated. §12 eval suite present and passing baseline.
 - v1.x.0 — add streaming for `n > 200`; add custom-distribution input.
-- v2.0.0 — when a breaking change to input/output schemas ships.
+- v2.0.0 — breaking change to input/output schemas.
 
 Per §12 line 1841: deprecated skills move to `/skills/deprecated/`, never
 deleted.

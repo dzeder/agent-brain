@@ -27,7 +27,7 @@ const fs = require('fs');
 const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
 
-const SKILL_VERSION = '1.0.0';
+const SKILL_VERSION = '0.9.0';
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const MAX_COUNT = 1000;
 const MIN_SURVIVAL_RATIO = 0.7;
@@ -131,7 +131,11 @@ function looksLikeRealPII(record) {
   const flat = JSON.stringify(record);
   const ssnReal = /\b(?!000|666|9\d{2})\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b/;
   const ccLuhn = /\b\d{13,19}\b/;
-  const realPhone = /\b(?<!555[-. ])\d{3}[-.\s]\d{4}\b/;
+  // Match a US-style 7-digit phone grouping (e.g., "867-5309", "415 0100").
+  // Exempt the `555-` test prefix via a lookahead at the captured group's
+  // start (a lookbehind here doesn't capture intent — it asks "what's BEFORE
+  // 555?" rather than "is the captured group itself 555-prefixed?").
+  const realPhone = /\b(?!555[-.\s])\d{3}[-.\s]\d{4}\b/;
   if (ssnReal.test(flat)) return 'ssn-like';
   // Note: ccLuhn intentionally lenient — false positives are acceptable
   // because we're discarding suspect records, not the whole batch.
