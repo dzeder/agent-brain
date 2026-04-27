@@ -1,4 +1,37 @@
 {
-  "last_updated": null,
-  "skills": []
+  "description": "Brain-repo skill registry — single source of truth per AGENT_PRODUCT_CYCLE.md §12 Skill Registry & Discovery. A skill belongs here only if it is used (or expected to be used) by 2+ products; product-specific skills live in their product repo. Required entry fields: skill_id, version, owner, description, location, inputs, outputs, compatible_agent_layers, tags, run_when, prerequisite. /skills/registry.json is currently a co-located duplicate carried from initial scaffolding; this file is canonical.",
+  "last_updated": "2026-04-27",
+  "skills": [
+    {
+      "skill_id": "context-interview-brain",
+      "version": "1.0.0",
+      "owner": "human-principal",
+      "description": "Structured interview that generates the four brain repo context files: [YOUR-NAME].md, [COMPANY].md, STACK.md, CONSTRAINTS.md. Run at brain repo setup and when principal, company, stack, or constraints change significantly.",
+      "location": "/skills/context-interview-brain/SKILL.md",
+      "inputs": ["conversation with human principal"],
+      "outputs": [
+        "/context/[YOUR-NAME].md",
+        "/context/[COMPANY].md",
+        "/context/STACK.md",
+        "/context/CONSTRAINTS.md"
+      ],
+      "compatible_agent_layers": ["ceo", "manager"],
+      "tags": ["onboarding", "context", "setup", "brain-repo"],
+      "run_when": "Brain repo setup, or when principal/company/stack/constraints change significantly.",
+      "prerequisite": null
+    },
+    {
+      "skill_id": "context-interview-product",
+      "version": "1.0.0",
+      "owner": "human-principal",
+      "description": "Focused interview that generates a CLAUDE.md for a specific product repo. Covers product purpose, architecture, formatting rules, product-specific constraints, and protected files. Assumes brain repo context files already exist.",
+      "location": "/skills/context-interview-product/SKILL.md",
+      "inputs": ["conversation with human principal"],
+      "outputs": ["CLAUDE.md (in product repo root)"],
+      "compatible_agent_layers": ["manager", "worker"],
+      "tags": ["onboarding", "context", "setup", "product-repo"],
+      "run_when": "New product repo setup, major architectural change, new product-specific compliance requirements.",
+      "prerequisite": "context-interview-brain must have been run first. Brain repo context files must exist."
+    }
+  ]
 }

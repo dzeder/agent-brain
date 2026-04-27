@@ -1,4 +1,5 @@
 {
-  "last_updated": null,
+  "description": "Brain-repo MCP server registry — single source of truth per AGENT_PRODUCT_CYCLE.md §MCP Registry. Every product repo's MCP server is registered here. When hiring a worker that consumes a product, this is the first thing to check — not the product repo directly. Entry format per §MCP Registry: server_id, product_repo, version, description, tools, compatible_agent_layers, auth_type, endpoint, openapi_spec, owner, status. Empty until the first product repo ships an MCP server.",
+  "last_updated": "2026-04-27",
   "mcp_servers": []
 }

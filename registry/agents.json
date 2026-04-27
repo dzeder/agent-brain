@@ -1,4 +1,66 @@
 {
-  "last_updated": null,
-  "agents": []
+  "description": "Brain-repo agent registry. Lists every agent definition that lives in this repo — the CEO and the base manager/worker templates. Domain-specific managers and workers live in product repos and are tracked in their own /registry/agents.json (discovered via /registry/index.json). Required fields per AGENT_PRODUCT_CYCLE.md §11 Onboarding Checklist: name, version, layer, owner, scope, trust_level, model, worker_type (workers only).",
+  "last_updated": "2026-04-27",
+  "agents": [
+    {
+      "agent_id": "ceo",
+      "name": "Orchestration Agent (CEO)",
+      "version": "1.0.0",
+      "layer": "ceo",
+      "owner": "human-principal",
+      "model": "claude-sonnet-4-6",
+      "worker_type": null,
+      "prompt_path": "/agents/orchestration/ceo-v1.0.0.md",
+      "scope": "System-wide orchestration. Goal parsing, workstream routing, manager accountability, daily digest. Orchestration tools only — never executes domain work.",
+      "reports_to": "human-principal",
+      "manages": "all manager agents (across product repos via /registry/index.json)",
+      "tools_scope": ["digest_delivery", "decision_registry_writes", "routing_state_reads", "team_health_reads"],
+      "schemas_emitted": ["message-envelope", "health-report"],
+      "trust_level": null,
+      "status": "STUB",
+      "status_notes": "Not yet hired. Activation blocked on §11 Agent Hiring & Onboarding checklist sign-off by human principal.",
+      "coaching_history": "/coaching/ceo/history.md",
+      "linear_board": null
+    },
+    {
+      "agent_id": "base-manager",
+      "name": "Base Manager Template",
+      "version": "1.0.0",
+      "layer": "manager",
+      "owner": "human-principal",
+      "model": "claude-sonnet-4-6",
+      "worker_type": null,
+      "prompt_path": "/agents/managers/base-manager.md",
+      "scope": "Template only. Domain-specific managers extend this in product repos by copying the file, renaming, and filling TODOs (project IDs, worker roster, rubric weights, escalation thresholds, examples). This entry is the source of the prompt skeleton, not a hireable agent.",
+      "reports_to": "ceo",
+      "manages": "TODO at extension",
+      "tools_scope": ["issue_queue_crud", "telemetry_reads", "coaching_event_logging"],
+      "schemas_emitted": ["message-envelope", "health-report"],
+      "trust_level": null,
+      "status": "TEMPLATE",
+      "status_notes": "Not a hired agent. Extending this template in a product repo creates a new entry in that repo's /registry/agents.json with status: STUB pending hiring checklist.",
+      "coaching_history": null,
+      "linear_board": null
+    },
+    {
+      "agent_id": "base-worker",
+      "name": "Base Worker Template",
+      "version": "1.0.0",
+      "layer": "worker",
+      "owner": "human-principal",
+      "model": "TODO at hire (claude-sonnet-4-6 for complex; claude-haiku-4-5 for simple/high-volume)",
+      "worker_type": "TODO at hire",
+      "prompt_path": "/agents/workers/base-worker.md",
+      "scope": "Template only. Domain-specific workers extend this in product repos with tools and examples set at hire. Carries the canonical 8-situation decision tree which extensions inherit.",
+      "reports_to": "TODO at extension (a specific manager)",
+      "manages": null,
+      "tools_scope": ["TODO at hire"],
+      "schemas_emitted": ["signed-output", "reflection"],
+      "trust_level": null,
+      "status": "TEMPLATE",
+      "status_notes": "Not a hired agent. Extending this template requires worker_type assignment (code_data_transforms | research_synthesis | writing_content | hybrid) and tool scope per §11.",
+      "coaching_history": null,
+      "linear_board": null
+    }
+  ]
 }
