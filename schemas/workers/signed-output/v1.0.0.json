@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Signed Output (Worker → Manager)",
+  "description": "Every worker output uses this schema. Untraceable output does not move upstream. Source: AGENT_PRODUCT_CYCLE.md §Signed Output Schema and §Worker Decision Tree (status enum expanded).",
+  "type": "object",
+  "required": [
+    "task_id",
+    "status",
+    "confidence",
+    "output",
+    "self_assessment",
+    "reflection",
+    "execution_metadata"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "Identifier for the task this output fulfills."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "failed",
+        "flagged",
+        "blocked",
+        "disputed_attribution",
+        "blocked_on_capability",
+        "investigation_needed"
+      ],
+      "description": "Status values per §Worker Decision Tree. complete/partial/failed/flagged are the four base statuses; the remaining four cover decision-tree branches (missing capability, disputed attribution, prompt-version conflict, etc)."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Worker self-assessed confidence (0.0–1.0). Outputs with confidence < 0.7 must be returned with status: flagged. Threshold can be raised per agent in the registry but never lowered below 0.5."
+    },
+    "output": {
+      "type": "object",
+      "description": "Task-specific output payload. Schema defined per task type.",
+      "additionalProperties": true
+    },
+    "self_assessment": {
+      "type": "object",
+      "required": [
+        "completed_all_requirements",
+        "followed_output_format",
+        "flagged_uncertainty",
+        "tool_failures_encountered",
+        "assumptions_made",
+        "flags"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "completed_all_requirements": { "type": "boolean" },
+        "followed_output_format": { "type": "boolean" },
+        "flagged_uncertainty": { "type": "boolean" },
+        "tool_failures_encountered": { "type": "boolean" },
+        "assumptions_made": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Each assumption made during execution, stated explicitly."
+        },
+        "flags": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true },
+          "description": "Structured flags per the Worker Decision Tree (e.g. {type: 'missing_capability', tool_needed: '...', reason: '...'})."
+        }
+      }
+    },
+    "reflection": {
+      "type": "object",
+      "description": "Inline reflection — see /schemas/workers/reflection/ for the canonical reflection schema.",
+      "required": [
+        "what_i_did",
+        "what_worked",
+        "what_i_struggled_with",
+        "what_id_do_differently",
+        "confidence_was_accurate"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "what_i_did": { "type": "string" },
+        "what_worked": { "type": "string" },
+        "what_i_struggled_with": { "type": "string" },
+        "what_id_do_differently": { "type": "string" },
+        "confidence_was_accurate": {
+          "type": "string",
+          "enum": ["true", "false", "uncertain"]
+        },
+        "coaching_applied": { "type": ["string", "null"] },
+        "coaching_helped": {
+          "type": "string",
+          "enum": ["true", "false", "uncertain", "n/a"]
+        }
+      }
+    },
+    "execution_metadata": {
+      "type": "object",
+      "required": [
+        "tool_calls",
+        "token_usage",
+        "latency_ms",
+        "model",
+        "prompt_version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tool_calls": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true },
+          "description": "Ordered list of tool invocations made during execution."
+        },
+        "token_usage": {
+          "type": "object",
+          "description": "Token counts (input/output/cached) for this execution.",
+          "additionalProperties": true
+        },
+        "latency_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "End-to-end execution latency in milliseconds."
+        },
+        "model": {
+          "type": "string",
+          "description": "Full date-stamped model string used for this execution."
+        },
+        "prompt_version": {
+          "type": "string",
+          "description": "Semver of the agent system prompt used for this execution."
+        }
+      }
+    }
+  }
+}

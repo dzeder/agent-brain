@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Index of all canonical schemas in agent-brain. All agent references resolve schema-id to the latest version through this index — never hardcode a version path in agent logic.",
+  "schemas": [
+    {
+      "schema_id": "message-envelope",
+      "domain": "agents",
+      "latest_version": "1.0.0",
+      "path": "/schemas/agents/message-envelope/v1.0.0.json"
+    },
+    {
+      "schema_id": "health-report",
+      "domain": "agents",
+      "latest_version": "1.0.0",
+      "path": "/schemas/agents/health-report/v1.0.0.json"
+    },
+    {
+      "schema_id": "signed-output",
+      "domain": "workers",
+      "latest_version": "1.0.0",
+      "path": "/schemas/workers/signed-output/v1.0.0.json"
+    },
+    {
+      "schema_id": "reflection",
+      "domain": "workers",
+      "latest_version": "1.0.0",
+      "path": "/schemas/workers/reflection/v1.0.0.json"
+    }
+  ]
+}

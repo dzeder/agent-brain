@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Standard Message Envelope",
+  "description": "Every message that crosses an agent boundary carries this envelope. Source: AGENT_PRODUCT_CYCLE.md §Inter-Agent Communication Standards > Standard Message Envelope.",
+  "type": "object",
+  "required": ["envelope", "payload"],
+  "additionalProperties": false,
+  "properties": {
+    "envelope": {
+      "type": "object",
+      "required": [
+        "message_id",
+        "trace_id",
+        "from_agent",
+        "to_agent",
+        "timestamp_utc",
+        "message_type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID v4 unique to this message."
+        },
+        "trace_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID v4 spanning the entire goal lifecycle. Same trace_id is shared across all messages tied to a single originating goal."
+        },
+        "from_agent": {
+          "type": "string",
+          "description": "Sending agent identifier in the form agent-id:version (e.g. ceo:1.0.0)."
+        },
+        "to_agent": {
+          "type": "string",
+          "description": "Receiving agent identifier in the form agent-id:version."
+        },
+        "timestamp_utc": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp."
+        },
+        "message_type": {
+          "type": "string",
+          "enum": [
+            "task_assignment",
+            "output",
+            "coaching",
+            "health_report",
+            "escalation",
+            "approval_request"
+          ],
+          "description": "The message_type-specific payload schema is defined in the skill registry."
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "description": "Message-type-specific payload. Schema defined per message_type in the skill registry.",
+      "additionalProperties": true
+    }
+  }
+}

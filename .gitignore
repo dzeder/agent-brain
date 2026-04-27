@@ -1,0 +1,43 @@
+# See AGENT_PRODUCT_CYCLE.md §Secrets & Credentials for the full policy.
+# Real credentials go in Doppler — never committed here.
+
+# === BEFORE MAKING THIS REPO PUBLIC ===
+# Today (2026-04-27) this repo is private and context/CONSTRAINTS.md is tracked
+# so agents can read it from the filesystem. If/when this repo goes public:
+#
+#   1. Uncomment the `context/CONSTRAINTS.md` line below — CONSTRAINTS.md
+#      contains approval gates, the trip wire, and customer-data rules.
+#      Not safe in a public repo.
+#   2. Move the contents of context/CONSTRAINTS.md into Doppler under a
+#      key the CEO and managers load from the environment, not the filesystem.
+#   3. Re-audit /context/Daniel.md, /context/Ohanafy.md, /context/STACK.md
+#      for customer-sensitive content (Gulf Distributing details, customer
+#      lists, integration partner names) before publishing.
+#   4. Confirm /coaching/<agent-id>/history.md (once populated) does not
+#      contain anything customer-sensitive.
+# ======================================
+
+# Environment
+.env
+.env.local
+
+# Context files — may contain sensitive information
+# Uncomment the line below when this repo is made public (see checklist above).
+# context/CONSTRAINTS.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (if used for PR review agent or tooling)
+node_modules/
+npm-debug.log
+
+# Python (if used for tooling)
+__pycache__/
+*.pyc
+.venv/
+
+# Editor
+.vscode/
+.idea/

@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Reflection Artifact",
+  "description": "Workers produce a structured reflection after every task. Reflections are written to the Langfuse trace immediately and batch-written to /coaching/<agent-id>/history.md by the nightly autodream job. Source: AGENT_PRODUCT_CYCLE.md §Reflection Artifacts.",
+  "type": "object",
+  "required": [
+    "what_i_did",
+    "what_worked",
+    "what_i_struggled_with",
+    "what_id_do_differently",
+    "confidence_was_accurate",
+    "coaching_applied",
+    "coaching_helped"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "what_i_did": {
+      "type": "string",
+      "description": "1–2 sentences summarizing what the worker did on this task."
+    },
+    "what_worked": {
+      "type": "string",
+      "description": "Brief — what went well."
+    },
+    "what_i_struggled_with": {
+      "type": "string",
+      "description": "Specific and honest. Vague struggles produce vague coaching."
+    },
+    "what_id_do_differently": {
+      "type": "string",
+      "description": "Actionable — concrete behavior change for next time."
+    },
+    "confidence_was_accurate": {
+      "type": "string",
+      "enum": ["true", "false", "uncertain"],
+      "description": "Whether the worker's pre-output confidence score matched the actual quality of the output."
+    },
+    "coaching_applied": {
+      "type": ["string", "null"],
+      "description": "Coaching note ID if a coaching note was applied on this task. Null if no coaching was active."
+    },
+    "coaching_helped": {
+      "type": "string",
+      "enum": ["true", "false", "uncertain", "n/a"],
+      "description": "Whether the applied coaching helped. n/a if no coaching was active."
+    }
+  }
+}
