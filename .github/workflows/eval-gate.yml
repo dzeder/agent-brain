@@ -31,10 +31,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       agents: ${{ steps.detect.outputs.agents }}
+      secret_configured: ${{ steps.secret_check.outputs.configured }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Detect ANTHROPIC_API_KEY
+        # Comparing the secret to '' yields a boolean string; the secret value
+        # itself is never exposed to the runner env.
+        id: secret_check
+        env:
+          KEY_PRESENT: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          if [ "$KEY_PRESENT" = "true" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::ANTHROPIC_API_KEY is not configured in repo secrets; eval-gate will post an info comment and skip the matrix."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Detect affected agents
         id: detect
@@ -71,9 +86,29 @@ jobs:
             echo "agents=$json" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Post 'secret not configured' comment
+        if: steps.secret_check.outputs.configured != 'true' && steps.detect.outputs.agents != '[]'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AGENTS: ${{ steps.detect.outputs.agents }}
+        run: |
+          set -euo pipefail
+          marker="<!-- eval-gate: secret-missing ${HEAD_SHA} -->"
+          body="${marker}"$'\n\n'":bell: **eval-gate skipped** — \`ANTHROPIC_API_KEY\` is not yet configured in repo secrets. Affected agents: \`${AGENTS}\`. Run baseline locally per \`/evals/README.md\` once the secret is set."
+          existing_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq '[.[] | select(.body | startswith("<!-- eval-gate: secret-missing"))] | last.id // ""')
+          if [ -n "$existing_id" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/comments/${existing_id}" -f body="$body" >/dev/null
+          else
+            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="$body" >/dev/null
+          fi
+
   run-evals:
     needs: detect-affected-agents
-    if: needs.detect-affected-agents.outputs.agents != '[]'
+    if: needs.detect-affected-agents.outputs.agents != '[]' && needs.detect-affected-agents.outputs.secret_configured == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

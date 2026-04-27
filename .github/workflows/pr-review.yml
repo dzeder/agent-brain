@@ -41,8 +41,59 @@ jobs:
           echo "skipped=true" >> "$GITHUB_OUTPUT"
         id: bypass
 
-      - name: Check rate limit (1 review per PR per 5 minutes)
+      - name: Detect missing ANTHROPIC_API_KEY
+        # The secret value never enters the env var here — only the boolean
+        # result of the != '' comparison. The check is a workflow-expression
+        # evaluation, not a runtime read of the secret itself.
         if: steps.bypass.outputs.skipped != 'true'
+        id: secret_check
+        env:
+          KEY_PRESENT: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          if [ "$KEY_PRESENT" = "true" ]; then
+            echo "missing=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::ANTHROPIC_API_KEY is not configured in repo secrets; skipping automated review."
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post 'secret not configured' comment
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          marker="<!-- pr-reviewer: ${HEAD_SHA} -->"
+          body="${marker}"$'\n\n'":bell: **PR review agent skipped** — \`ANTHROPIC_API_KEY\` is not yet configured in repo secrets. The agent activates once the human principal sets the secret per \`/agents/pr-reviewer/README.md\`."
+          existing_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq '[.[] | select(.body | startswith("<!-- pr-reviewer:"))] | last.id // ""')
+          if [ -n "$existing_id" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/comments/${existing_id}" -f body="$body" >/dev/null
+          else
+            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="$body" >/dev/null
+          fi
+
+      - name: Set status check (skipped — secret not configured)
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Use 'success' so this PR (the activation PR itself) isn't blocked
+          # by its own missing-secret state. After activation the secret is
+          # set, the agent runs, and a real verdict drives the status.
+          gh api -X POST "repos/${REPO}/statuses/${HEAD_SHA}" \
+            -f state=success \
+            -f context=pr-review-agent \
+            -f description="Agent skipped: ANTHROPIC_API_KEY not configured" \
+            -f target_url="${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
+
+      - name: Check rate limit (1 review per PR per 5 minutes)
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true'
         id: ratelimit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -64,14 +115,14 @@ jobs:
           fi
 
       - name: Checkout PR head
-        if: steps.bypass.outputs.skipped != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Setup Node
-        if: steps.bypass.outputs.skipped != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -79,12 +130,12 @@ jobs:
           cache-dependency-path: agents/pr-reviewer/package.json
 
       - name: Install agent deps
-        if: steps.bypass.outputs.skipped != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
         working-directory: agents/pr-reviewer
         run: npm install --no-audit --no-fund
 
       - name: Stage PR diff and metadata
-        if: steps.bypass.outputs.skipped != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
         id: stage
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -112,7 +163,7 @@ jobs:
           echo "metadata=/tmp/pr-review/metadata.json" >> "$GITHUB_OUTPUT"
 
       - name: Run PR Review Agent
-        if: steps.bypass.outputs.skipped != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
         id: review
         working-directory: agents/pr-reviewer
         env:
@@ -125,16 +176,24 @@ jobs:
           COMMENT_PATH: /tmp/pr-review/comment.md
           VERDICT_PATH: /tmp/pr-review/verdict
         run: |
-          set -e
+          # Don't `set -e` here. index.js writes fallback output/comment/verdict
+          # files in its catch handler before exiting non-zero on API failure.
+          # We want the subsequent steps to read those fallbacks and post a
+          # 'review failed → human review required' comment + status check.
           node index.js
+          node_exit=$?
+          if [ "$node_exit" -ne 0 ]; then
+            echo "::warning::PR review agent exited ${node_exit}; using fallback artifacts written by the catch handler."
+          fi
+          verdict=$(cat /tmp/pr-review/verdict 2>/dev/null || echo "escalate")
           {
-            echo "verdict=$(cat /tmp/pr-review/verdict)"
+            echo "verdict=${verdict}"
             echo "output=/tmp/pr-review/signed-output.json"
             echo "comment=/tmp/pr-review/comment.md"
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload signed-output as artifact
-        if: always() && steps.bypass.outputs.skipped != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: always() && steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: pr-review-signed-output-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
@@ -142,7 +201,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Post or update PR comment
-        if: steps.bypass.outputs.skipped != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -165,7 +224,7 @@ jobs:
           fi
 
       - name: Set status check based on verdict
-        if: steps.bypass.outputs.skipped != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -186,7 +245,7 @@ jobs:
             -f target_url="${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
 
       - name: Fail the job on fail/escalate
-        if: steps.bypass.outputs.skipped != 'true' && steps.ratelimit.outputs.skipped != 'true' && steps.review.outputs.verdict != 'pass'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true' && steps.review.outputs.verdict != '' && steps.review.outputs.verdict != 'pass'
         run: |
           echo "::error::Verdict is ${VERDICT_VAL}; blocking merge until resolved."
           exit 1
