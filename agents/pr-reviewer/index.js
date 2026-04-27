@@ -45,7 +45,7 @@ const PROTECTED_PATHS = [
 ];
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
-const DEFAULT_MAX_TOKENS = 4096;
+const DEFAULT_MAX_TOKENS = 8192;  // bumped from 4096 — large PRs were truncating
 const RETRY_BACKOFF_MS = 30_000;
 const MAX_RETRIES = 2;
 
@@ -103,13 +103,46 @@ async function callClaude({ apiKey, model, maxTokens, systemPrompt, userInput })
 }
 
 function parseSignedOutput(text) {
-  // The agent emits the signed-output JSON. It may be wrapped in markdown
-  // code fences. Strip them.
-  const cleaned = text
-    .replace(/^```(?:json)?\s*\n?/m, '')
-    .replace(/\n?```\s*$/m, '')
-    .trim();
-  return JSON.parse(cleaned);
+  // Robust JSON extraction. The model is instructed to emit only the JSON
+  // object, but in practice it sometimes wraps in code fences or adds a
+  // preamble/coda ("Here is the review:" ... "Let me know..."). Find the
+  // first `{` and walk the brace tree, respecting string boundaries and
+  // escapes, so we extract the outermost JSON object cleanly regardless
+  // of surrounding prose.
+  const start = text.indexOf('{');
+  if (start === -1) {
+    throw new Error('No `{` found in agent output — model returned no JSON.');
+  }
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i += 1) {
+    const c = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (c === '\\') escape = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === '{') depth += 1;
+    else if (c === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        const slice = text.slice(start, i + 1);
+        return JSON.parse(slice);
+      }
+    }
+  }
+  throw new Error(
+    'Unmatched braces in agent output — JSON object did not close before end of response (likely truncated by max_tokens).'
+  );
 }
 
 function buildUserMessage({ metadata, diff, antiDriftTemplate, protectedHint }) {
@@ -189,7 +222,15 @@ async function main() {
         flagged_uncertainty: true,
         tool_failures_encountered: false,
         assumptions_made: [],
-        flags: [{ type: 'output_parse_failure', detail: err.message }],
+        flags: [
+          {
+            type: 'output_parse_failure',
+            detail: err.message,
+            raw_output_first_2k_chars: text.slice(0, 2000),
+            raw_output_last_500_chars: text.slice(-500),
+            raw_output_length: text.length,
+          },
+        ],
       },
       reflection: {
         what_i_did: 'Attempted PR review; output unparseable.',
