@@ -45,7 +45,7 @@ const PROTECTED_PATHS = [
 ];
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
-const DEFAULT_MAX_TOKENS = 4096;
+const DEFAULT_MAX_TOKENS = 8192;  // bumped from 4096 — large PRs were truncating
 const RETRY_BACKOFF_MS = 30_000;
 const MAX_RETRIES = 2;
 
@@ -103,13 +103,130 @@ async function callClaude({ apiKey, model, maxTokens, systemPrompt, userInput })
 }
 
 function parseSignedOutput(text) {
-  // The agent emits the signed-output JSON. It may be wrapped in markdown
-  // code fences. Strip them.
-  const cleaned = text
-    .replace(/^```(?:json)?\s*\n?/m, '')
-    .replace(/\n?```\s*$/m, '')
-    .trim();
-  return JSON.parse(cleaned);
+  // Robust JSON extraction. The model is instructed to emit only the JSON
+  // object, but in practice it sometimes wraps in code fences or adds a
+  // preamble/coda ("Here is the review:" ... "Let me know..."). Find the
+  // first `{` and walk the brace tree, respecting string boundaries and
+  // escapes, so we extract the outermost JSON object cleanly regardless
+  // of surrounding prose.
+  const start = text.indexOf('{');
+  if (start === -1) {
+    throw new Error('No `{` found in agent output — model returned no JSON.');
+  }
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i += 1) {
+    const c = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (c === '\\') escape = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === '{') depth += 1;
+    else if (c === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        const slice = text.slice(start, i + 1);
+        return JSON.parse(slice);
+      }
+    }
+  }
+  throw new Error(
+    'Unmatched braces in agent output — JSON object did not close before end of response (likely truncated by max_tokens).'
+  );
+}
+
+const DIMENSION_ORDER = [
+  'structure',
+  'secrets',
+  'scope',
+  'intent',
+  'prompt_drift',
+  'api_contract',
+  'documentation',
+  'escalation',
+];
+
+const VERDICT_EMOJI = {
+  pass: ':white_check_mark:',
+  fail: ':x:',
+  skip: ':white_circle:',
+  human_review_required: ':bell:',
+};
+
+function renderCommentFromOutput(output) {
+  // Build a deterministic markdown comment from the structured signed-output
+  // payload. Used when the agent returned a valid JSON object without a
+  // populated `comment_markdown`. Keeps PR comments useful even when the
+  // model under-renders the prose section.
+  const lines = [];
+  const verdict = output.verdict ?? 'escalate';
+  const verdictBadge =
+    verdict === 'pass' ? ':white_check_mark: PASS' :
+    verdict === 'fail' ? ':x: FAIL' : ':bell: ESCALATE';
+  lines.push(`### ${verdictBadge}`);
+  lines.push('');
+
+  if (output.human_review_required) {
+    lines.push('**Human review required.**');
+    if (Array.isArray(output.human_review_reasons) && output.human_review_reasons.length > 0) {
+      for (const reason of output.human_review_reasons) {
+        lines.push(`- ${reason}`);
+      }
+    }
+    lines.push('');
+  }
+
+  if (output.dimensions && typeof output.dimensions === 'object') {
+    const rows = [];
+    DIMENSION_ORDER.forEach((dim, idx) => {
+      const d = output.dimensions[dim];
+      if (!d) return;
+      const v = d.verdict ?? '?';
+      const emoji = VERDICT_EMOJI[v] ?? '';
+      const notes = (d.notes ?? '').replace(/\|/g, '\\|').slice(0, 200);
+      rows.push(`| ${idx + 1} | ${dim} | ${emoji} ${v} | ${notes} |`);
+    });
+    if (rows.length > 0) {
+      lines.push('### Dimensions');
+      lines.push('');
+      lines.push('| # | Dimension | Verdict | Notes |');
+      lines.push('|---|-----------|---------|-------|');
+      lines.push(...rows);
+      lines.push('');
+    }
+  }
+
+  if (Array.isArray(output.blocking_issues) && output.blocking_issues.length > 0) {
+    lines.push('### Blocking issues');
+    lines.push('');
+    for (const issue of output.blocking_issues) {
+      const loc = issue.file
+        ? (issue.line ? `\`${issue.file}:${issue.line}\`` : `\`${issue.file}\``)
+        : '';
+      lines.push(`- **${issue.dimension ?? '?'}** ${loc} — ${issue.rule ?? ''}`);
+      if (issue.evidence) lines.push(`  - evidence: ${issue.evidence}`);
+      if (issue.fix) lines.push(`  - fix: ${issue.fix}`);
+    }
+    lines.push('');
+  }
+
+  if (lines.length === 1) {
+    // Output had nothing beyond the verdict; emit an honest minimal comment.
+    lines.push('');
+    lines.push('_(Agent returned a structured verdict but no per-dimension detail. See the workflow artifact for the full signed-output JSON.)_');
+  }
+
+  return lines.join('\n');
 }
 
 function buildUserMessage({ metadata, diff, antiDriftTemplate, protectedHint }) {
@@ -189,7 +306,15 @@ async function main() {
         flagged_uncertainty: true,
         tool_failures_encountered: false,
         assumptions_made: [],
-        flags: [{ type: 'output_parse_failure', detail: err.message }],
+        flags: [
+          {
+            type: 'output_parse_failure',
+            detail: err.message,
+            raw_output_first_2k_chars: text.slice(0, 2000),
+            raw_output_last_500_chars: text.slice(-500),
+            raw_output_length: text.length,
+          },
+        ],
       },
       reflection: {
         what_i_did: 'Attempted PR review; output unparseable.',
@@ -260,11 +385,15 @@ async function main() {
     ];
   }
 
+  // Always render a useful comment. The agent sometimes returns the
+  // dimensions object without a comment_markdown; we render one from
+  // the structured output so PRs never end up with `_(empty comment)_`.
+  if (!signed.output.comment_markdown || signed.output.comment_markdown.trim() === '') {
+    signed.output.comment_markdown = renderCommentFromOutput(signed.output);
+  }
+
   fs.writeFileSync(outputPath, JSON.stringify(signed, null, 2));
-  fs.writeFileSync(
-    commentPath,
-    signed.output.comment_markdown ?? '_(empty comment)_'
-  );
+  fs.writeFileSync(commentPath, signed.output.comment_markdown);
   fs.writeFileSync(verdictPath, signed.output.verdict ?? 'escalate');
 }
 
