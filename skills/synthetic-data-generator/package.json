@@ -1,0 +1,12 @@
+{
+  "name": "agent-brain-synthetic-data-generator",
+  "private": true,
+  "description": "CLI for the synthetic-data-generator skill. Procedure lives in SKILL.md; this entrypoint is for batch / CI use. See /skills/synthetic-data-generator/SKILL.md.",
+  "main": "generate.js",
+  "scripts": {
+    "generate": "node generate.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0"
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Synthetic Data Generator — Input",
+  "description": "Input contract for the synthetic-data-generator skill. Source: /skills/synthetic-data-generator/SKILL.md.",
+  "type": "object",
+  "required": ["count"],
+  "additionalProperties": false,
+  "properties": {
+    "target_schema": {
+      "type": "object",
+      "description": "JSON schema for the records to generate. Mutually exclusive with `target_example` and `template`. If multiple are present, precedence is: template > target_schema > target_example.",
+      "additionalProperties": true
+    },
+    "target_example": {
+      "type": "object",
+      "description": "Example record from which the skill infers a schema. Used when a formal schema is unavailable.",
+      "additionalProperties": true
+    },
+    "template": {
+      "type": "string",
+      "description": "Name of a bundled template under /skills/synthetic-data-generator/templates/. Mutually exclusive with target_schema/target_example.",
+      "enum": ["support-message", "linear-issue", "signed-output"]
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "description": "Number of records to request. Hard cap at 1000; larger batches must be split."
+    },
+    "constraints": {
+      "type": "object",
+      "description": "Optional generation constraints applied at planning time.",
+      "additionalProperties": false,
+      "properties": {
+        "locale": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "BCP-47 locales to distribute across (e.g., en-US, en-GB)."
+        },
+        "language": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Languages to distribute across (overrides locale-derived language)."
+        },
+        "tone": {
+          "type": "string",
+          "enum": ["terse", "neutral", "verbose", "mixed"],
+          "default": "mixed"
+        },
+        "domain": {
+          "type": "string",
+          "description": "High-level domain hint, e.g., 'b2b-saas', 'ecommerce', 'healthcare'."
+        },
+        "severity_distribution": {
+          "type": "object",
+          "description": "Map of severity tag → fractional weight (must sum to 1.0).",
+          "additionalProperties": { "type": "number" }
+        },
+        "time_window": {
+          "type": "object",
+          "description": "Range for any timestamp fields.",
+          "properties": {
+            "start": { "type": "string", "format": "date-time" },
+            "end": { "type": "string", "format": "date-time" }
+          }
+        },
+        "include_optional_fields_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "Fraction of records that include each optional field."
+        }
+      }
+    },
+    "diversity_controls": {
+      "type": "object",
+      "description": "Optional explicit diversity targets.",
+      "additionalProperties": false,
+      "properties": {
+        "minimum_distinct_categorical": {
+          "type": "object",
+          "description": "Map of categorical field name → minimum number of distinct values across the batch.",
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "max_share_per_value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.3,
+          "description": "Cap on the fraction any single categorical value can occupy."
+        },
+        "length_buckets": {
+          "type": "object",
+          "description": "Distribution across short/medium/long for free-text fields.",
+          "additionalProperties": { "type": "number" }
+        }
+      }
+    },
+    "seed": {
+      "type": "string",
+      "description": "Deterministic seed for reproducibility. Same seed + same model + same input ⇒ same output (best-effort)."
+    },
+    "model": {
+      "type": "string",
+      "default": "claude-sonnet-4-6",
+      "description": "Model to use. Defaults to MODEL_WORKER_COMPLEX-equivalent."
+    }
+  },
+  "oneOf": [
+    { "required": ["template"] },
+    { "required": ["target_schema"] },
+    { "required": ["target_example"] }
+  ]
+}
