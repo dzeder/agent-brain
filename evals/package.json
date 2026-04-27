@@ -1,0 +1,15 @@
+{
+  "name": "agent-brain-evals",
+  "private": true,
+  "description": "Eval harness for brain-repo agents. Run via: cd evals && npm install && npm run eval:<agent>. Promptfoo CLI is the runner; LLM-as-judge uses MODEL_EVAL (claude-opus-4-7).",
+  "scripts": {
+    "eval:ceo": "promptfoo eval -c ceo/promptfooconfig.yaml --output ceo/results.json",
+    "eval:base-manager": "promptfoo eval -c base-manager/promptfooconfig.yaml --output base-manager/results.json",
+    "eval:base-worker": "promptfoo eval -c base-worker/promptfooconfig.yaml --output base-worker/results.json",
+    "eval:all": "npm run eval:ceo && npm run eval:base-manager && npm run eval:base-worker",
+    "view": "promptfoo view"
+  },
+  "devDependencies": {
+    "promptfoo": "^0.110.0"
+  }
+}

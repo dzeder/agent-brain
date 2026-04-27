@@ -1,0 +1,37 @@
+description: base-manager template — golden eval suite
+
+# Loads the live base-manager prompt. Tests cover three use cases:
+#   1. Workstream decomposition (graded by manager-decomposition-rubric)
+#   2. Worker output review (graded by manager-review-rubric)
+#   3. Coaching message generation + escalation decisions (graded by review rubric)
+# Each test supplies vars.rubric to point the judge at the right rubric.
+
+prompts:
+  - id: base-manager-live-prompt
+    label: base-manager-v1.0.0
+    file: file://../lib/build-prompt.js
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    label: base-manager-runtime
+    config:
+      max_tokens: 4096
+      temperature: 0.2
+
+defaultTest:
+  vars:
+    agent_prompt_path: ../../agents/managers/base-manager.md
+  options:
+    provider:
+      id: anthropic:messages:claude-opus-4-7
+      config:
+        max_tokens: 2048
+        temperature: 0.0
+    rubricPrompt: file://../judge-prompts/rubric-judge.txt
+  assert:
+    - type: llm-rubric
+      value: "{{rubric}}"
+
+tests: file://./tests.yaml
+
+outputPath: ./results.json

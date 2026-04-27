@@ -1,0 +1,36 @@
+description: CEO orchestration agent — golden eval suite
+
+# Loads the live CEO system prompt from /agents/orchestration/ceo-v1.0.0.md.
+# Each test case supplies user_input (the goal); the agent's response is graded
+# against the CEO orchestration rubric by claude-opus-4-7.
+
+prompts:
+  - id: ceo-live-prompt
+    label: ceo-v1.0.0
+    file: file://../lib/build-prompt.js
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    label: ceo-runtime
+    config:
+      max_tokens: 4096
+      temperature: 0.2
+
+defaultTest:
+  vars:
+    agent_prompt_path: ../../agents/orchestration/ceo-v1.0.0.md
+    rubric: file://../rubrics/ceo-orchestration-rubric.md
+  options:
+    provider:
+      id: anthropic:messages:claude-opus-4-7
+      config:
+        max_tokens: 2048
+        temperature: 0.0
+    rubricPrompt: file://../judge-prompts/rubric-judge.txt
+  assert:
+    - type: llm-rubric
+      value: "{{rubric}}"
+
+tests: file://./tests.yaml
+
+outputPath: ./results.json

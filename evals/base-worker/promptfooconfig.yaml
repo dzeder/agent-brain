@@ -1,0 +1,39 @@
+description: base-worker template — golden eval suite
+
+# Loads the live base-worker prompt. Tests cover the 8-situation decision tree
+# (each situation gets multiple cases) and signed-output schema compliance.
+# Graded against the worker-output-rubric by claude-opus-4-7.
+
+prompts:
+  - id: base-worker-live-prompt
+    label: base-worker-v1.0.0
+    file: file://../lib/build-prompt.js
+
+providers:
+  # Workers can be sonnet-4-6 (complex) or haiku-4-5 (simple). Baseline is run
+  # on sonnet because the base template covers the full decision tree;
+  # domain-specific extensions can re-baseline on haiku at hire.
+  - id: anthropic:messages:claude-sonnet-4-6
+    label: base-worker-runtime
+    config:
+      max_tokens: 4096
+      temperature: 0.0
+
+defaultTest:
+  vars:
+    agent_prompt_path: ../../agents/workers/base-worker.md
+    rubric: file://../rubrics/worker-output-rubric.md
+  options:
+    provider:
+      id: anthropic:messages:claude-opus-4-7
+      config:
+        max_tokens: 2048
+        temperature: 0.0
+    rubricPrompt: file://../judge-prompts/rubric-judge.txt
+  assert:
+    - type: llm-rubric
+      value: "{{rubric}}"
+
+tests: file://./tests.yaml
+
+outputPath: ./results.json
