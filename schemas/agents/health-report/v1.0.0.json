@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Team Health Report (Manager → CEO)",
+  "description": "Weekly structured health report a manager produces for the CEO. Source: AGENT_PRODUCT_CYCLE.md §Manager Agent Design > Team Health Reporting.",
+  "type": "object",
+  "required": [
+    "agent_id",
+    "period_start",
+    "period_end",
+    "task_completion_rate",
+    "error_rate_by_type",
+    "worker_performance",
+    "active_pips",
+    "top_recurring_issues",
+    "cost_efficiency",
+    "escalations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "agent_id": {
+      "type": "string",
+      "description": "Manager agent identifier producing this report."
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 start of the reporting window (UTC)."
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 end of the reporting window (UTC)."
+    },
+    "task_completion_rate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Fraction of tasks completed (status=complete) over the period."
+    },
+    "error_rate_by_type": {
+      "type": "object",
+      "description": "Error rates broken out by §Error Taxonomy types. Keys are error type names (worker_self_failed, manager_rejected, tool_call_failed, downstream_attributed); values are rates [0,1].",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "worker_performance": {
+      "type": "array",
+      "description": "Per-worker metrics for the period.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "worker_id": { "type": "string" },
+          "tasks_completed": { "type": "integer", "minimum": 0 },
+          "rejection_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+          "self_assessment_accuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+          "latency_p50_ms": { "type": "integer", "minimum": 0 },
+          "latency_p95_ms": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "active_pips": {
+      "type": "array",
+      "description": "Workers currently on a Performance Improvement Plan.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "worker_id": { "type": "string" },
+          "pip_started": { "type": "string", "format": "date-time" },
+          "failure_pattern": { "type": "string" }
+        }
+      }
+    },
+    "top_recurring_issues": {
+      "type": "array",
+      "maxItems": 3,
+      "description": "Top 3 recurring issues for the period: what was done about each, what remains.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "issue": { "type": "string" },
+          "actions_taken": { "type": "string" },
+          "remaining_work": { "type": "string" }
+        }
+      }
+    },
+    "cost_efficiency": {
+      "type": "object",
+      "description": "Cost and token efficiency per task type for the period.",
+      "additionalProperties": true,
+      "properties": {
+        "total_cost_usd": { "type": "number", "minimum": 0 },
+        "tokens_in": { "type": "integer", "minimum": 0 },
+        "tokens_out": { "type": "integer", "minimum": 0 },
+        "by_task_type": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "escalations": {
+      "type": "array",
+      "description": "Items the manager is surfacing to the CEO this period.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "type": { "type": "string" },
+          "summary": { "type": "string" },
+          "recommended_action": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "description": "CEO reads this to locate product agent registries. Each entry points to a product repo's /registry/agents.json. The CEO resolves from this index, then fetches per-product registries via GitHub API. If GitHub API is unavailable, the CEO falls back to the locally-cached snapshot updated nightly by the autodream job.",
+  "last_updated": null,
+  "products": []
+}
