@@ -1,0 +1,12 @@
+{
+  "name": "agent-brain-pr-reviewer",
+  "private": true,
+  "description": "PR Review Agent entrypoint. Invoked by .github/workflows/pr-review.yml. Calls the Anthropic API with the live system prompt + PR diff and emits a signed-output JSON.",
+  "main": "index.js",
+  "scripts": {
+    "review": "node index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0"
+  }
+}

@@ -1,7 +1,32 @@
 {
-  "description": "Brain-repo agent registry. Lists every agent definition that lives in this repo — the CEO and the base manager/worker templates. Domain-specific managers and workers live in product repos and are tracked in their own /registry/agents.json (discovered via /registry/index.json). Required fields per AGENT_PRODUCT_CYCLE.md §11 Onboarding Checklist: name, version, layer, owner, scope, trust_level, model, worker_type (workers only).",
+  "description": "Brain-repo agent registry. Lists every agent definition that lives in this repo — the CEO, the base manager/worker templates, and the automated PR review agent. Domain-specific managers and workers live in product repos and are tracked in their own /registry/agents.json (discovered via /registry/index.json). Required fields per AGENT_PRODUCT_CYCLE.md §11 Onboarding Checklist: name, version, layer, owner, scope, trust_level, model, worker_type (workers only).",
   "last_updated": "2026-04-27",
   "agents": [
+    {
+      "agent_id": "pr-reviewer",
+      "name": "Automated PR Review Agent",
+      "version": "1.0.0",
+      "layer": "worker",
+      "owner": "human-principal",
+      "model": "claude-sonnet-4-6",
+      "worker_type": "code_data_transforms",
+      "prompt_path": "/agents/pr-reviewer/pr-reviewer-v1.0.0.md",
+      "scope": "First-pass review on every PR — scores 8 anti-drift dimensions and emits a signed output. Read-only repo access; comments on PR; never approves, requests changes, or merges. Recursion rule forces human review on PRs touching /agents/pr-reviewer/, /standards/, AGENT_PRODUCT_CYCLE.md, or CLAUDE.md.",
+      "reports_to": "human-principal",
+      "manages": null,
+      "tools_scope": ["read_pr_diff", "read_pr_metadata", "post_pr_comment", "set_status_check"],
+      "schemas_emitted": ["signed-output", "reflection"],
+      "trust_level": null,
+      "status": "STUB",
+      "status_notes": "Activation requires (a) human-principal sign-off on the M4 PR, (b) sample-PR verification per /agents/pr-reviewer/README.md, (c) coaching-history initialized at /coaching/pr-reviewer/history.md.",
+      "coaching_history": "/coaching/pr-reviewer/history.md",
+      "linear_board": null,
+      "runtime": {
+        "entrypoint": "/agents/pr-reviewer/index.js",
+        "workflow": "/.github/workflows/pr-review.yml",
+        "secrets_required": ["ANTHROPIC_API_KEY"]
+      }
+    },
     {
       "agent_id": "ceo",
       "name": "Orchestration Agent (CEO)",

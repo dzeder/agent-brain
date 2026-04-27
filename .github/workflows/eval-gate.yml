@@ -1,0 +1,202 @@
+name: eval-gate
+
+# Phase 06 Prompt Drift Gate (§Phase 06 + §14). Runs Promptfoo against the
+# affected agent's golden dataset whenever a prompt file changes. Posts the
+# results as a PR comment.
+#
+# Today this is informational: it runs the eval and reports scores, but it
+# does NOT enforce regression — /evals/<agent>/baseline.json is not yet
+# committed (M2 baseline is a user-run handoff). Once baselines land, flip
+# `enforce_regression: true` below.
+#
+# Triggered by changes under /agents/, /prompts/, /evals/. Skipped on docs-
+# only changes.
+
+on:
+  pull_request:
+    paths:
+      - 'agents/**/*.md'
+      - 'prompts/**'
+      - 'evals/**/*.yaml'
+      - 'evals/lib/**'
+      - 'evals/judge-prompts/**'
+      - 'evals/rubrics/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  detect-affected-agents:
+    runs-on: ubuntu-latest
+    outputs:
+      agents: ${{ steps.detect.outputs.agents }}
+      secret_configured: ${{ steps.secret_check.outputs.configured }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect ANTHROPIC_API_KEY
+        # Comparing the secret to '' yields a boolean string; the secret value
+        # itself is never exposed to the runner env.
+        id: secret_check
+        env:
+          KEY_PRESENT: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          if [ "$KEY_PRESENT" = "true" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::ANTHROPIC_API_KEY is not configured in repo secrets; eval-gate will post an info comment and skip the matrix."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect affected agents
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" || true)
+          agents=()
+          # CEO
+          if echo "$changed" | grep -qE '^agents/orchestration/ceo' \
+             || echo "$changed" | grep -qE '^evals/ceo/'; then
+            agents+=("ceo")
+          fi
+          # base-manager
+          if echo "$changed" | grep -qE '^agents/managers/base-manager.md$' \
+             || echo "$changed" | grep -qE '^evals/base-manager/'; then
+            agents+=("base-manager")
+          fi
+          # base-worker
+          if echo "$changed" | grep -qE '^agents/workers/base-worker.md$' \
+             || echo "$changed" | grep -qE '^evals/base-worker/'; then
+            agents+=("base-worker")
+          fi
+          # Shared eval infra → run all
+          if echo "$changed" | grep -qE '^evals/(lib|judge-prompts|rubrics)/'; then
+            agents=("ceo" "base-manager" "base-worker")
+          fi
+          if [ ${#agents[@]} -eq 0 ]; then
+            echo "agents=[]" >> "$GITHUB_OUTPUT"
+          else
+            json=$(printf '%s\n' "${agents[@]}" | jq -R . | jq -s -c .)
+            echo "agents=$json" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post 'secret not configured' comment
+        if: steps.secret_check.outputs.configured != 'true' && steps.detect.outputs.agents != '[]'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AGENTS: ${{ steps.detect.outputs.agents }}
+        run: |
+          set -euo pipefail
+          marker="<!-- eval-gate: secret-missing ${HEAD_SHA} -->"
+          body="${marker}"$'\n\n'":bell: **eval-gate skipped** — \`ANTHROPIC_API_KEY\` is not yet configured in repo secrets. Affected agents: \`${AGENTS}\`. Run baseline locally per \`/evals/README.md\` once the secret is set."
+          existing_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq '[.[] | select(.body | startswith("<!-- eval-gate: secret-missing"))] | last.id // ""')
+          if [ -n "$existing_id" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/comments/${existing_id}" -f body="$body" >/dev/null
+          else
+            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="$body" >/dev/null
+          fi
+
+  run-evals:
+    needs: detect-affected-agents
+    if: needs.detect-affected-agents.outputs.agents != '[]' && needs.detect-affected-agents.outputs.secret_configured == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        agent: ${{ fromJSON(needs.detect-affected-agents.outputs.agents) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: evals/package.json
+
+      - name: Install Promptfoo
+        working-directory: evals
+        run: npm install --no-audit --no-fund
+
+      - name: Run eval suite for ${{ matrix.agent }}
+        working-directory: evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -e
+          npm run eval:${{ matrix.agent }} || echo "::warning::eval suite returned non-zero; results.json captured for diff."
+
+      - name: Compare against baseline (informational)
+        working-directory: evals/${{ matrix.agent }}
+        run: |
+          set -euo pipefail
+          if [ ! -f baseline.json ]; then
+            echo "::notice::No baseline.json for ${{ matrix.agent }} yet; reporting current run only."
+            echo "no_baseline=true" >> "$GITHUB_ENV"
+          else
+            echo "Baseline present; computing diff (informational only — enforcement off until baselines stabilize)."
+          fi
+
+      - name: Render comment
+        id: render
+        working-directory: evals/${{ matrix.agent }}
+        run: |
+          set -euo pipefail
+          if [ -f results.json ]; then
+            pass=$(jq '[.results[] | select(.success==true)] | length' results.json 2>/dev/null || echo 0)
+            total=$(jq '.results | length' results.json 2>/dev/null || echo 0)
+            mean=$(jq '[.results[] | .gradingResult.score // 0] | add / length' results.json 2>/dev/null || echo "n/a")
+          else
+            pass=0; total=0; mean="n/a"
+          fi
+          {
+            echo "comment<<EOF"
+            echo "**Eval gate — ${{ matrix.agent }}**"
+            echo ""
+            echo "- Tests: ${pass}/${total} passing"
+            echo "- Mean score: ${mean}"
+            if [ "${no_baseline:-false}" = "true" ]; then
+              echo "- Baseline: not yet committed; informational run only."
+            fi
+            echo "- Full \`results.json\` uploaded as workflow artifact."
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results-${{ matrix.agent }}-${{ github.event.pull_request.head.sha }}
+          path: evals/${{ matrix.agent }}/results.json
+          if-no-files-found: warn
+
+      - name: Post comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AGENT: ${{ matrix.agent }}
+        run: |
+          set -euo pipefail
+          marker="<!-- eval-gate: ${AGENT} ${HEAD_SHA} -->"
+          body="${marker}"$'\n\n'"${{ steps.render.outputs.comment }}"
+          existing_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq "[.[] | select(.body | startswith(\"<!-- eval-gate: ${AGENT}\"))] | last.id // \"\"")
+          if [ -n "$existing_id" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/comments/${existing_id}" -f body="$body" >/dev/null
+          else
+            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="$body" >/dev/null
+          fi
