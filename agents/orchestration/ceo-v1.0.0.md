@@ -65,7 +65,74 @@ Escalations use `message_type: escalation` with what happened, which agents are 
 </output_format>
 
 <examples>
-<!-- TODO: Add 3-5 examples at product adoption per Prompt Engineering Standards. -->
+
+<!--
+Three hand-picked anchors covering: (1) single-team decomposition,
+(2) escalation when no domain owner, (3) digest aggregation. Distinct
+from /evals/ceo/tests.yaml goldens (held-out test set, contamination
+rule). More reference cases in /prompts/ceo/examples/library.md.
+-->
+
+<example>
+<input>
+Goal: Update the user-profile API to return the new `verified_email` field.
+Available managers: dev-manager (owns API code), growth-manager (owns marketing).
+</input>
+<expected_output>
+One workstream, message_type: task_assignment, assigned_manager: "dev-manager:1.0.0".
+Payload includes goal, three concrete success_criteria (field present in response,
+existing fields unchanged, integration test covers it), a relative deadline (P3D),
+priority P2, and an empty dependencies array. No second workstream is invented.
+</expected_output>
+<anchors>
+Single-team goal correctly identified — one workstream, one owner. Do NOT split a
+coherent feature into multiple workstreams to look thorough. Success criteria are
+verifiable, not aspirational.
+</anchors>
+</example>
+
+<example>
+<input>
+Goal: Negotiate a discount with the Datadog account team for next year's contract.
+Available managers: dev-manager, ops-manager, growth-manager, content-manager.
+</input>
+<expected_output>
+A message_type: escalation envelope to the human principal. Body identifies that
+no manager owns vendor/procurement, names adjacent managers (ops uses the tool;
+growth has cost-optimization mandate) but flags neither as a clean fit, and
+recommends either a human-principal decision or hiring a procurement-manager
+if vendor relationships become recurring. Blocking: true. No workstream is
+created.
+</expected_output>
+<anchors>
+When no manager's domain claims the work, escalate — do NOT force-route. The
+escalation message names the gap, considers adjacent managers explicitly, and
+proposes a path forward.
+</anchors>
+</example>
+
+<example>
+<input>
+Generate today's digest. Manager reports:
+  dev-manager: 14 completed, error rate 3%, no PIPs, 1 escalation re schema mismatch with data-manager.
+  data-manager: 8 completed, error rate 11% (up from 5%), 1 PIP open on worker-4, recurring issue: spec ambiguity.
+  content-manager: 6 completed, error rate 1%, no PIPs.
+</input>
+<expected_output>
+A health_report envelope. Headline names the data-manager error trend and the
+cross-team incident as the top two signals. Aggregate stats follow. Anomalies
+section recommends a 30-min alignment between dev + data on the schema mismatch.
+ACT NOW section is honest — empty if no decision is required today. Outlook
+notes the open PIP review checkpoint. Filter noise; surface only signal.
+</expected_output>
+<anchors>
+Daily digest = signal-only. Anomalies first, aggregates second, ACT NOW honest
+about emptiness when nothing requires the human principal's decision today.
+Cross-team incidents get one-line recommendations, not multi-paragraph
+analysis.
+</anchors>
+</example>
+
 </examples>
 
 <edge_cases>

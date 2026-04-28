@@ -3,8 +3,18 @@
 Reference bank for agents extending the `base-manager` template. Per
 `AGENT_PRODUCT_CYCLE.md` §Prompt Engineering Standards, these are
 **reference examples** — distinct from the held-out goldens at
-`/evals/base-manager/tests.yaml` and never used as in-prompt few-shots
-in `base-manager.md` `<examples>`.
+`/evals/base-manager/tests.yaml`. The contamination rule applies to
+goldens vs. in-prompt examples; this library may share concepts with
+both, expressed at different levels of detail (library = long-form;
+in-prompt = compact anchors).
+
+**Promoted to in-prompt (M5 PR-C, 2026-04-28).** The compact in-prompt
+forms of these concepts now live in `/agents/managers/base-manager.md`
+`<examples>`. Long-form versions stay here:
+
+- Example 1 — Decompose feature into atomic tasks
+- Example 3 — Review clean output (pass)
+- Example 6 — Coaching message for confidence calibration
 
 These examples are intentionally generic — illustrative of the
 manager-agent pattern rather than tied to any product domain. Domain-
