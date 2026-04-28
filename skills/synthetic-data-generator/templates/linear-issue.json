@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Synthetic Linear-style issue template",
+  "description": "Records resemble Linear issues used as inputs to dev-manager decomposition / triage evals. No real-customer references, no real public figures.",
+  "type": "object",
+  "required": ["issue_id", "project", "title", "body", "labels", "priority", "requester", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "issue_id": {
+      "type": "string",
+      "pattern": "^[A-Z]{2,5}-\\d{1,5}$",
+      "description": "e.g., ENG-123. Synthetic — never collides with real production project prefixes."
+    },
+    "project": {
+      "type": "string",
+      "enum": ["ENG", "OPS", "DATA", "INFRA", "QA", "ML", "GROWTH"],
+      "description": "Project prefix. Distribution: ENG 35%, OPS 15%, DATA 15%, INFRA 10%, QA 10%, ML 10%, GROWTH 5%."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 120,
+      "description": "Short title. Length distribution: short 20% (5–30 chars), medium 60% (30–80), long 20% (80–120). Tone register varies."
+    },
+    "body": {
+      "type": "string",
+      "description": "Issue body. Length distribution: short (<100 words) 30%, medium (100–400) 50%, long (400+) 20%. Mix of bug reports, feature requests, refactor proposals, investigation tasks."
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["bug", "feature", "refactor", "investigation", "docs", "P0", "P1", "P2", "P3", "blocked", "needs-design", "needs-review"]
+      },
+      "minItems": 1,
+      "maxItems": 4,
+      "description": "Generator combines a kind-label + priority-label, sometimes adding a workflow label."
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["P0", "P1", "P2", "P3"],
+      "description": "Distribution: P0 5%, P1 25%, P2 50%, P3 20%."
+    },
+    "requester": {
+      "type": "string",
+      "description": "Synthetic display name. Mix of regions; never real-customer, never real public figure."
+    },
+    "assignee": {
+      "type": ["string", "null"],
+      "description": "~40% of records have an assignee, 60% are null."
+    },
+    "estimate_points": {
+      "type": ["integer", "null"],
+      "enum": [null, 1, 2, 3, 5, 8, 13, 21],
+      "description": "Fibonacci point estimate. ~50% of records have an estimate."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "blocked_by": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[A-Z]{2,5}-\\d{1,5}$" },
+      "default": [],
+      "description": "Optional cross-issue dependency. ~15% of records reference 1–2 other synthetic issues."
+    }
+  },
+  "_diversity_profile": {
+    "categorical_share_cap": 0.30,
+    "minimum_distinct": {
+      "project": 5,
+      "priority": 4
+    },
+    "length_buckets_title": { "short": 0.2, "medium": 0.6, "long": 0.2 },
+    "length_buckets_body": { "short": 0.3, "medium": 0.5, "long": 0.2 }
+  }
+}

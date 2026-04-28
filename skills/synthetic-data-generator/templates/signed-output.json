@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Synthetic worker signed-output template",
+  "description": "Records mirror /schemas/workers/signed-output/v1.0.0.json. Used as inputs to manager-review evals. The generator deliberately injects realistic flaws (vague reflections, miscalibrated confidence, schema near-misses) so review-rubric goldens have things to grade. Source: /skills/synthetic-data-generator/SKILL.md.",
+  "type": "object",
+  "required": ["task_id", "status", "confidence", "output", "self_assessment", "reflection", "execution_metadata"],
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^T-[A-Za-z0-9]{4,}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["complete", "partial", "failed", "flagged", "blocked", "disputed_attribution", "blocked_on_capability", "investigation_needed"],
+      "description": "Distribution: complete 50%, flagged 15%, partial 10%, failed 5%, blocked 5%, blocked_on_capability 5%, disputed_attribution 5%, investigation_needed 5%."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Task-specific payload. Generator picks a payload shape consistent with status."
+    },
+    "self_assessment": {
+      "type": "object",
+      "required": ["completed_all_requirements", "followed_output_format", "flagged_uncertainty", "tool_failures_encountered", "assumptions_made", "flags"],
+      "additionalProperties": false,
+      "properties": {
+        "completed_all_requirements": { "type": "boolean" },
+        "followed_output_format": { "type": "boolean" },
+        "flagged_uncertainty": { "type": "boolean" },
+        "tool_failures_encountered": { "type": "boolean" },
+        "assumptions_made": { "type": "array", "items": { "type": "string" } },
+        "flags": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+      }
+    },
+    "reflection": {
+      "type": "object",
+      "required": ["what_i_did", "what_worked", "what_i_struggled_with", "what_id_do_differently", "confidence_was_accurate"],
+      "additionalProperties": true,
+      "properties": {
+        "what_i_did": { "type": "string" },
+        "what_worked": { "type": "string" },
+        "what_i_struggled_with": { "type": "string" },
+        "what_id_do_differently": { "type": "string" },
+        "confidence_was_accurate": { "type": "string", "enum": ["true", "false", "uncertain"] },
+        "coaching_applied": { "type": ["string", "null"] },
+        "coaching_helped": { "type": "string", "enum": ["true", "false", "uncertain", "n/a"] }
+      }
+    },
+    "execution_metadata": {
+      "type": "object",
+      "required": ["tool_calls", "token_usage", "latency_ms", "model", "prompt_version"],
+      "additionalProperties": false,
+      "properties": {
+        "tool_calls": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+        "token_usage": { "type": "object", "additionalProperties": true },
+        "latency_ms": { "type": "integer", "minimum": 0 },
+        "model": { "type": "string" },
+        "prompt_version": { "type": "string" }
+      }
+    }
+  },
+  "_diversity_profile": {
+    "categorical_share_cap": 0.40,
+    "minimum_distinct": {
+      "status": 6
+    },
+    "intentional_quality_mix": {
+      "comment": "Manager-review goldens need a mix. Target: ~40% clean (would pass review), ~30% pass-with-notes, ~20% reject (vague reflection, miscalibrated confidence, missing flags), ~10% escalate-class (3rd repeat failure, layer-authority probe, etc).",
+      "clean": 0.4,
+      "pass_with_notes": 0.3,
+      "reject": 0.2,
+      "escalate": 0.1
+    }
+  }
+}

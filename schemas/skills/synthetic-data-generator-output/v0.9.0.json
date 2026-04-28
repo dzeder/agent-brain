@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Synthetic Data Generator — Output",
+  "description": "Output contract for the synthetic-data-generator skill. Source: /skills/synthetic-data-generator/SKILL.md.",
+  "type": "object",
+  "required": ["records", "manifest"],
+  "additionalProperties": false,
+  "properties": {
+    "records": {
+      "type": "array",
+      "description": "Generated records. Each carries a synthetic_source tag; remaining fields conform to the requested target schema.",
+      "items": {
+        "type": "object",
+        "required": ["synthetic_source"],
+        "additionalProperties": true,
+        "properties": {
+          "synthetic_source": {
+            "type": "string",
+            "pattern": "^synthetic-data-generator@\\d+\\.\\d+\\.\\d+$",
+            "description": "Provenance tag. Consumers filter on this to exclude synthetic data from production analytics."
+          }
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "required": ["model", "requested_count", "generated_count", "constraints", "distribution"],
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Date-stamped model string used for generation."
+        },
+        "seed": {
+          "type": ["string", "null"],
+          "description": "Seed if one was provided."
+        },
+        "requested_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "generated_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Records remaining after schema validation, PII filtering, and de-duplication."
+        },
+        "constraints": {
+          "type": "object",
+          "description": "Echoed constraints from the input.",
+          "additionalProperties": true
+        },
+        "distribution": {
+          "type": "object",
+          "description": "Per-field distribution summary.",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "object",
+                "description": "Categorical: counts per enum value plus Shannon entropy.",
+                "properties": {
+                  "type": { "const": "categorical" },
+                  "counts": { "type": "object", "additionalProperties": { "type": "integer" } },
+                  "entropy": { "type": "number" }
+                }
+              },
+              {
+                "type": "object",
+                "description": "Numeric: descriptive stats.",
+                "properties": {
+                  "type": { "const": "numeric" },
+                  "mean": { "type": "number" },
+                  "stddev": { "type": "number" },
+                  "min": { "type": "number" },
+                  "max": { "type": "number" }
+                }
+              },
+              {
+                "type": "object",
+                "description": "Free-text: length distribution buckets.",
+                "properties": {
+                  "type": { "const": "free_text" },
+                  "length_buckets": {
+                    "type": "object",
+                    "properties": {
+                      "short": { "type": "integer" },
+                      "medium": { "type": "integer" },
+                      "long": { "type": "integer" }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Coverage gaps, de-duplication losses, retry events. Empty array means a clean run."
+        }
+      }
+    }
+  }
+}

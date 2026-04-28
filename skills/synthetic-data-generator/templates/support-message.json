@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Synthetic support-message template",
+  "description": "Records resemble inbound customer-support messages. Use for support-classifier / routing eval inputs. No real PII per /skills/synthetic-data-generator/SKILL.md privacy guardrails.",
+  "type": "object",
+  "required": ["message_id", "channel", "tenant_id", "customer_handle", "locale", "received_at", "body"],
+  "additionalProperties": false,
+  "properties": {
+    "message_id": {
+      "type": "string",
+      "pattern": "^msg-[A-Za-z0-9]{8,}$",
+      "description": "Synthetic ID; do not collide with real production ID format."
+    },
+    "channel": {
+      "type": "string",
+      "enum": ["email", "in_app_chat", "support_form", "twitter_dm", "phone_transcript"],
+      "description": "Inbound channel. Distribution defaults to: email 40%, in_app_chat 30%, support_form 15%, twitter_dm 10%, phone_transcript 5%."
+    },
+    "tenant_id": {
+      "type": "string",
+      "pattern": "^tenant-[a-z0-9-]+$",
+      "description": "Synthetic tenant id. Generator never reuses tenant ids that appear in /context/."
+    },
+    "customer_handle": {
+      "type": "string",
+      "description": "Display name OR username. Synthetic — never matches real-customer or real-public-figure names. Use plausible-but-fake names mixing regions."
+    },
+    "locale": {
+      "type": "string",
+      "pattern": "^[a-z]{2}-[A-Z]{2}$",
+      "description": "BCP-47, e.g., en-US."
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "urgency_hint": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "ambiguous"],
+      "description": "Optional. ~50% of records include this; a quarter of those are 'ambiguous'."
+    },
+    "category_seed": {
+      "type": "string",
+      "enum": ["billing", "technical", "account_access", "feature_request", "complaint", "other"],
+      "description": "Diversity-control hint for the generator. Default split: billing 30%, technical 30%, account_access 15%, feature_request 10%, complaint 10%, other 5%."
+    },
+    "body": {
+      "type": "string",
+      "description": "Free-text message body. Length distribution: short (<50 words) 25%, medium (50-200) 60%, long (200+) 15%. Tone register varies (terse / neutral / verbose). Must NOT contain real-format SSNs, credit card numbers, real phone numbers, or real-customer-domain emails."
+    },
+    "thread_position": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "1 = first message in thread; > 1 = follow-up. ~80% of records are first-message; 20% are follow-ups for thread-aware testing."
+    }
+  },
+  "_diversity_profile": {
+    "categorical_share_cap": 0.30,
+    "minimum_distinct": {
+      "channel": 4,
+      "category_seed": 5,
+      "locale": 3
+    },
+    "length_buckets": {
+      "short": 0.25,
+      "medium": 0.60,
+      "long": 0.15
+    },
+    "comment": "Read by the generator at planning time. Removed from the schema-validation copy."
+  }
+}

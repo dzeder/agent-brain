@@ -25,6 +25,18 @@
       "domain": "workers",
       "latest_version": "1.0.0",
       "path": "/schemas/workers/reflection/v1.0.0.json"
+    },
+    {
+      "schema_id": "synthetic-data-generator-input",
+      "domain": "skills",
+      "latest_version": "0.9.0",
+      "path": "/schemas/skills/synthetic-data-generator-input/v0.9.0.json"
+    },
+    {
+      "schema_id": "synthetic-data-generator-output",
+      "domain": "skills",
+      "latest_version": "0.9.0",
+      "path": "/schemas/skills/synthetic-data-generator-output/v0.9.0.json"
     }
   ]
 }

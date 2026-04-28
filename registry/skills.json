@@ -32,6 +32,31 @@
       "tags": ["onboarding", "context", "setup", "product-repo"],
       "run_when": "New product repo setup, major architectural change, new product-specific compliance requirements.",
       "prerequisite": "context-interview-brain must have been run first. Brain repo context files must exist."
+    },
+    {
+      "skill_id": "synthetic-data-generator",
+      "version": "0.9.0",
+      "owner": "human-principal",
+      "description": "Generate N synthetic records matching a target schema for use in eval golden datasets and dev-environment fixtures. Schema-aware, diversity-controlled, with PII guardrails. Three bundled templates: support-message, linear-issue, signed-output. Out-of-scope: adversarial / red-team inputs (use /security/injection-corpus/) and any data resembling real customers or real PII.",
+      "location": "/skills/synthetic-data-generator/SKILL.md",
+      "inputs": [
+        "/schemas/skills/synthetic-data-generator-input/v0.9.0.json"
+      ],
+      "outputs": [
+        "/schemas/skills/synthetic-data-generator-output/v0.9.0.json"
+      ],
+      "compatible_agent_layers": ["worker", "manager"],
+      "compatible_worker_types": ["code_data_transforms", "research_synthesis"],
+      "tags": ["test-data", "evals", "dev-environment", "fixtures", "synthetic"],
+      "run_when": "New product repo standing up; agent golden suite needs additional cases for an under-covered category; new task type prototype needs realistic input shapes; dev-environment fixture refresh; schema change invalidates existing fixtures.",
+      "prerequisite": null,
+      "runtime": {
+        "agent_invocation": "Read SKILL.md and follow the procedure inline.",
+        "cli_invocation": {
+          "entrypoint": "/skills/synthetic-data-generator/generate.js",
+          "secrets_required": ["ANTHROPIC_API_KEY"]
+        }
+      }
     }
   ]
 }
