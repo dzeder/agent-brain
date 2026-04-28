@@ -5,9 +5,7 @@ description: base-worker template — golden eval suite
 # Graded against the worker-output-rubric by claude-opus-4-7.
 
 prompts:
-  - id: base-worker-live-prompt
-    label: base-worker-v1.0.0
-    file: file://../lib/build-prompt.js
+  - file://../lib/build-prompt.js
 
 providers:
   # Workers can be sonnet-4-6 (complex) or haiku-4-5 (simple). Baseline is run

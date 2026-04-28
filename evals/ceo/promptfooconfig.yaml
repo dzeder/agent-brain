@@ -5,9 +5,7 @@ description: CEO orchestration agent — golden eval suite
 # against the CEO orchestration rubric by claude-opus-4-7.
 
 prompts:
-  - id: ceo-live-prompt
-    label: ceo-v1.0.0
-    file: file://../lib/build-prompt.js
+  - file://../lib/build-prompt.js
 
 providers:
   - id: anthropic:messages:claude-sonnet-4-6
