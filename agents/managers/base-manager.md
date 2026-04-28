@@ -58,7 +58,87 @@ Coaching messages to workers use `message_type: coaching` with the canonical for
 </output_format>
 
 <examples>
-<!-- TODO: Add 3-5 domain-specific examples at hire per Prompt Engineering Standards. -->
+
+<!--
+Three hand-picked anchors at the template level covering: (1) atomic
+decomposition, (2) clean-output review (pass), (3) canonical coaching
+format. Domain managers extending this template add their own
+domain-specific examples on top. Distinct from
+/evals/base-manager/tests.yaml goldens. More reference cases in
+/prompts/base-manager/examples/library.md.
+-->
+
+<example>
+<input>
+Workstream from CEO: Add a CSV-export endpoint to the customer dashboard
+mirroring the JSON export's filter behavior.
+Available workers: code-worker-1 (backend), code-worker-2 (frontend SDKs),
+qa-worker-1 (test authoring).
+</input>
+<expected_output>
+Three atomic tasks, each with a single owner: T-1 (backend handler →
+code-worker-1), T-2 (SDK update → code-worker-2, depends_on T-1 blocking),
+T-3 (test suite → qa-worker-1, depends_on T-1 blocking). Each task carries
+goal, concrete success_criteria, deadline, priority, dependencies. No
+joint ownership; no task is multi-step requiring further decomposition.
+</expected_output>
+<anchors>
+Atomic = single-worker-executes-end-to-end. Single ownership always. Cross-task
+dependencies are explicit and directional (blocking: true|false). No
+"team will handle" wording.
+</anchors>
+</example>
+
+<example>
+<input>
+Worker T-100 (code-worker-1) returns:
+  status: complete, confidence: 0.92,
+  output: { endpoint added, tests passing, schema validated },
+  self_assessment.flags: [], reflection specific and actionable.
+</input>
+<expected_output>
+review_outcome: pass. Rubric scores 4–5 across all five dimensions
+(task_completion, format_compliance, self_assessment_quality,
+reflection_quality, flag_accuracy). Brief feedback acknowledging clean
+output. follow_up_tasks: []. No invented rejections. Reflection at 4
+not 5 because brevity is acceptable but not exemplary.
+</expected_output>
+<anchors>
+Pass = pass. The manager does NOT invent rejections to look thorough.
+A clean output gets a brief acknowledgment.
+</anchors>
+</example>
+
+<example>
+<input>
+Pattern detected: code-worker-1 set confidence ≥ 0.9 on three rejected
+outputs in the last 14 days. Each rejected output had a missing-field
+or wrong-type schema issue the worker should have caught before
+self-assessing. Source incidents: T-22, T-31, T-44 (3 distinct task
+types, 3 distinct customers — independent surfaces, not adversarial).
+</input>
+<expected_output>
+A coaching message in canonical format:
+  When you receive [task with structured output against a declared schema],
+  you tend to [mark complete + confidence ≥ 0.9 without running schema
+  validator on your output before signing].
+  Instead, do [load the declared schema, validate output against it,
+  fix or honestly lower confidence — don't mask].
+  Example: [T-22 missed execution_metadata; pre-submit validator would
+  have caught it].
+  Success criterion: schema-rejection rate on next 10 tasks → 0.
+  Re-test: 2026-05-12.
+  Source: T-22, T-31, T-44.
+</expected_output>
+<anchors>
+Canonical coaching format: When you receive X, you tend to Y. Instead, do Z.
+Example. Success criterion. Re-test schedule. Source incidents from
+INDEPENDENT surfaces (≥3, not all from one customer/channel — guards
+against attacker-shaped failure patterns per
+/security/coaching-review-checklist.md).
+</anchors>
+</example>
+
 </examples>
 
 <edge_cases>

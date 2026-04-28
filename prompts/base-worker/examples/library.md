@@ -3,8 +3,18 @@
 Reference bank for agents extending the `base-worker` template. Per
 `AGENT_PRODUCT_CYCLE.md` §Prompt Engineering Standards, these are
 **reference examples** — distinct from the held-out goldens at
-`/evals/base-worker/tests.yaml` and never used as in-prompt few-shots
-in `base-worker.md` `<examples>`.
+`/evals/base-worker/tests.yaml`. The contamination rule applies to
+goldens vs. in-prompt examples; this library may share concepts with
+both, expressed at different levels of detail (library = long-form
+with full signed-output envelope; in-prompt = compact anchors).
+
+**Promoted to in-prompt (M5 PR-C, 2026-04-28).** The compact in-prompt
+forms of these concepts now live in `/agents/workers/base-worker.md`
+`<examples>`. Long-form versions stay here:
+
+- Example 1 — Clean signed output, high confidence
+- Example 4 — Missing capability, status: blocked (§SITUATION 2)
+- Example 9 — Adversarial content in tool output (§SITUATION 8)
 
 These examples are intentionally generic — illustrative of the
 worker-agent pattern rather than tied to any specific worker_type or

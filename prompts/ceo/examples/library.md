@@ -3,8 +3,20 @@
 Reference bank for the Orchestration Agent (CEO). Per
 `AGENT_PRODUCT_CYCLE.md` §Prompt Engineering Standards, these are
 **reference examples** — distinct from the held-out golden dataset
-at `/evals/ceo/tests.yaml` and never used as in-prompt few-shots
-in `ceo-v1.0.0.md` `<examples>`.
+at `/evals/ceo/tests.yaml`. The contamination rule applies to goldens
+vs. in-prompt examples (a golden never appears in `<examples>`); this
+library may share concepts with both, expressed at different levels of
+detail (library = long-form with full envelope JSON; in-prompt = compact
+anchors).
+
+**Promoted to in-prompt (M5 PR-C, 2026-04-28).** The compact in-prompt
+forms of these concepts now live in `/agents/orchestration/ceo-v1.0.0.md`
+`<examples>`. The full long-form versions stay here as reference for
+runtime context injection on complex tasks:
+
+- Example 1 — Single-team feature build
+- Example 4 — Cross-team aggregation in daily digest
+- Example 5 — Escalation when no domain owner exists
 
 Each entry shows a typical input, the expected workstream-decomposition
 output (using the Standard Message Envelope), and a one-line "what this
