@@ -117,14 +117,14 @@ jobs:
 
       - name: Checkout PR head
         if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Setup Node
         if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: 'npm'
@@ -195,7 +195,7 @@ jobs:
 
       - name: Upload signed-output as artifact
         if: always() && steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pr-review-signed-output-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
           path: /tmp/pr-review/signed-output.json
