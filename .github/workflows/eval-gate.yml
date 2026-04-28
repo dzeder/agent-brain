@@ -33,7 +33,7 @@ jobs:
       agents: ${{ steps.detect.outputs.agents }}
       secret_configured: ${{ steps.secret_check.outputs.configured }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -118,9 +118,9 @@ jobs:
         agent: ${{ fromJSON(needs.detect-affected-agents.outputs.agents) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: 'npm'
@@ -176,7 +176,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: eval-results-${{ matrix.agent }}-${{ github.event.pull_request.head.sha }}
           path: evals/${{ matrix.agent }}/results.json
