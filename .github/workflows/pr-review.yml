@@ -158,6 +158,7 @@ jobs:
             author: .user.login,
             labels: [.labels[].name],
             base_ref: .base.ref,
+            head_ref: .head.ref,
             head_sha: .head.sha
           }' > /tmp/pr-review/metadata.json
           echo "diff=/tmp/pr-review/diff.patch" >> "$GITHUB_OUTPUT"
