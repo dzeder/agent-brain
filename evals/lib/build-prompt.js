@@ -27,8 +27,12 @@ function stripHeader(content) {
   return content.replace(/^<!--[\s\S]*?-->\s*\n/, '');
 }
 
-module.exports = function buildPrompt(vars, providerOptions) {
-  const promptPath = vars.agent_prompt_path;
+module.exports = function buildPrompt(arg1, arg2) {
+  // Promptfoo 0.121+ calls prompt functions with a single context object:
+  //   { vars, provider, config }
+  // Older 0.x versions called with (vars, providerOptions). Accept both.
+  const vars = arg1 && typeof arg1 === 'object' && 'vars' in arg1 ? arg1.vars : arg1;
+  const promptPath = vars && vars.agent_prompt_path;
   if (!promptPath) {
     throw new Error(
       'evals/lib/build-prompt.js: missing agent_prompt_path in vars. ' +
@@ -46,15 +50,19 @@ module.exports = function buildPrompt(vars, providerOptions) {
   const raw = fs.readFileSync(absPath, 'utf8');
   const systemPrompt = stripHeader(raw).trim();
 
-  const userInput = vars.user_input;
+  const userInput = vars && vars.user_input;
   if (typeof userInput !== 'string') {
     throw new Error(
       'evals/lib/build-prompt.js: each test case must define vars.user_input.'
     );
   }
 
-  return JSON.stringify([
+  // Promptfoo 0.121+ expects the function to return the chat-messages
+  // array directly. Earlier versions accepted a JSON-stringified array;
+  // 0.121 treats a string return as a single user message and the chat
+  // structure is lost.
+  return [
     { role: 'system', content: systemPrompt },
     { role: 'user', content: userInput },
-  ]);
+  ];
 };

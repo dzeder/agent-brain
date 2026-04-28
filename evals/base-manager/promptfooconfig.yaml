@@ -7,9 +7,7 @@ description: base-manager template — golden eval suite
 # Each test supplies vars.rubric to point the judge at the right rubric.
 
 prompts:
-  - id: base-manager-live-prompt
-    label: base-manager-v1.0.0
-    file: file://../lib/build-prompt.js
+  - file://../lib/build-prompt.js
 
 providers:
   - id: anthropic:messages:claude-sonnet-4-6
