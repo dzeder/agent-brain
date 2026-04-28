@@ -6,7 +6,7 @@
     "eval:ceo": "promptfoo eval -c ceo/promptfooconfig.yaml --output ceo/results.json",
     "eval:base-manager": "promptfoo eval -c base-manager/promptfooconfig.yaml --output base-manager/results.json",
     "eval:base-worker": "promptfoo eval -c base-worker/promptfooconfig.yaml --output base-worker/results.json",
-    "eval:all": "npm run eval:ceo && npm run eval:base-manager && npm run eval:base-worker",
+    "eval:all": "ok=0; npm run eval:ceo || ok=1; npm run eval:base-manager || ok=1; npm run eval:base-worker || ok=1; exit $ok",
     "view": "promptfoo view"
   },
   "devDependencies": {

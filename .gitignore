@@ -42,3 +42,4 @@ __pycache__/
 .vscode/
 .idea/
 evals/.promptfoo
+evals/*/results.json
