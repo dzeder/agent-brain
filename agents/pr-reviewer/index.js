@@ -49,6 +49,24 @@ const DEFAULT_MAX_TOKENS = 8192;  // bumped from 4096 — large PRs were truncat
 const RETRY_BACKOFF_MS = 30_000;
 const MAX_RETRIES = 2;
 
+// Diff compaction. PR #13 (M2 baseline) sent 3.6MB of baseline.json content
+// → 1.28M tokens → context-window overflow. Big "data" files don't need
+// line-by-line review; show the agent a summary stub instead.
+const ELIDABLE_PATH_PATTERNS = [
+  /\.baseline\.json$/,            // committed baseline reference (M2)
+  /\.results\.json$/,             // per-run promptfoo output (shouldn't be committed but defensive)
+  /(^|\/)package-lock\.json$/,    // npm lockfile
+  /(^|\/)yarn\.lock$/,
+  /(^|\/)Cargo\.lock$/,
+  /(^|\/)Gemfile\.lock$/,
+  /(^|\/)go\.sum$/,
+  /(^|\/)poetry\.lock$/,
+  /\.min\.(js|css)$/,             // pre-minified
+];
+
+const PER_FILE_BYTE_LIMIT = 50_000;       // any single-file chunk over this is summarized
+const TOTAL_DIFF_BYTE_LIMIT = 1_500_000;  // ~375K tokens at ~4B/token; leaves room for prompt + reply
+
 function readEnvPath(name, fallback) {
   const value = process.env[name] ?? fallback;
   if (!value) throw new Error(`Missing required env: ${name}`);
@@ -73,6 +91,61 @@ function detectProtectedPath(diff) {
     PROTECTED_PATHS.some((re) => re.test(f))
   );
   return { isProtected: matches.length > 0, matchedFiles: matches };
+}
+
+function compactDiff(diff) {
+  // Split the unified diff into per-file chunks, then keep small/relevant
+  // chunks verbatim and replace large or "data" chunks with summary stubs.
+  // The original full diff is still uploaded as a workflow artifact for
+  // post-mortem; the agent just doesn't see those bytes during review.
+  const chunks = diff.split(/(?=^diff --git )/m);
+  const compacted = [];
+  let totalBytes = 0;
+  let truncated = false;
+  for (const chunk of chunks) {
+    if (!chunk.trim()) continue;
+    const fileMatch = chunk.match(/^diff --git a\/(\S+) b\/(\S+)/m);
+    const filePath = fileMatch ? fileMatch[2] : '<unknown>';
+    const matchedPattern = ELIDABLE_PATH_PATTERNS.find((p) => p.test(filePath));
+    const oversize = chunk.length > PER_FILE_BYTE_LIMIT;
+
+    let entry;
+    if (matchedPattern || oversize) {
+      // Count line markers excluding headers (`+++`/`---` count once each).
+      const insertions = ((chunk.match(/^\+/gm) || []).length - 1) | 0;
+      const deletions = ((chunk.match(/^-/gm) || []).length - 1) | 0;
+      const reason = matchedPattern
+        ? `matches data-file pattern ${matchedPattern}`
+        : `chunk size ${chunk.length} bytes > ${PER_FILE_BYTE_LIMIT}`;
+      // Preserve everything from `diff --git` through the last header
+      // line before the first @@-hunk (covers index/mode/`--- a/`/`+++ b/`)
+      // so detectProtectedPath and header-aware tooling still see file
+      // paths and the elision is unambiguously a content elision, not a
+      // metadata one.
+      const headerMatch = chunk.match(
+        /^diff --git[^\n]*\n(?:(?!@@)[^\n]*\n)*/
+      );
+      const header = headerMatch ? headerMatch[0] : `diff --git a/${filePath} b/${filePath}\n`;
+      entry =
+        header +
+        `[ELIDED-FOR-AGENT-CONTEXT: +${insertions} -${deletions} lines. ` +
+        `Reason: ${reason}. Full diff in the pr-review workflow artifact.]\n`;
+    } else {
+      entry = chunk;
+    }
+
+    if (totalBytes + entry.length > TOTAL_DIFF_BYTE_LIMIT) {
+      compacted.push(
+        `\n[DIFF TRUNCATED-FOR-AGENT-CONTEXT: cumulative size exceeds ${TOTAL_DIFF_BYTE_LIMIT} bytes. ` +
+          `Subsequent files not shown to the agent. Full diff in workflow artifact.]\n`
+      );
+      truncated = true;
+      break;
+    }
+    compacted.push(entry);
+    totalBytes += entry.length;
+  }
+  return { compacted: compacted.join(''), truncated, totalBytes };
 }
 
 async function callClaude({ apiKey, model, maxTokens, systemPrompt, userInput }) {
@@ -256,12 +329,25 @@ async function main() {
   const model = process.env.MODEL ?? DEFAULT_MODEL;
   const maxTokens = Number(process.env.MAX_TOKENS ?? DEFAULT_MAX_TOKENS);
 
-  const diff = readFile(diffPath);
+  const rawDiff = readFile(diffPath);
   const metadata = JSON.parse(readFile(metadataPath));
   const antiDriftTemplate = readFile(antiDriftPath);
   const systemPrompt = stripPromptHeader(readFile(systemPromptPath));
 
-  const protectedHint = detectProtectedPath(diff);
+  // Detect protected paths on the FULL diff (before compaction) so the
+  // recursion-rule backstop is never weaker than the agent's view.
+  const protectedHint = detectProtectedPath(rawDiff);
+
+  // Compact the diff before sending to the LLM. Big "data" files
+  // (baseline.json, lockfiles, minified) get summary stubs; everything
+  // else passes through verbatim. The full original diff stays in the
+  // workflow artifact for post-mortem.
+  const { compacted: diff, truncated, totalBytes } = compactDiff(rawDiff);
+  if (truncated) {
+    console.error(
+      `[pr-reviewer] Diff was truncated to fit context budget. Original: ${rawDiff.length} bytes; compacted: ${totalBytes} bytes.`
+    );
+  }
 
   const userInput = buildUserMessage({
     metadata,

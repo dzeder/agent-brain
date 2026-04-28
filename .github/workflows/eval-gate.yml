@@ -150,19 +150,25 @@ jobs:
           fi
 
       - name: Render comment
-        id: render
         working-directory: evals/${{ matrix.agent }}
         run: |
           set -euo pipefail
+          # Promptfoo 0.121+ nests results as .results.results[]. The older
+          # 0.110 schema was .results[]. Use the new path with a fallback
+          # in `[]?` so a malformed file doesn't throw.
           if [ -f results.json ]; then
-            pass=$(jq '[.results[] | select(.success==true)] | length' results.json 2>/dev/null || echo 0)
-            total=$(jq '.results | length' results.json 2>/dev/null || echo 0)
-            mean=$(jq '[.results[] | .gradingResult.score // 0] | add / length' results.json 2>/dev/null || echo "n/a")
+            pass=$(jq '[.results.results[]? | select(.success==true)] | length' results.json 2>/dev/null || echo 0)
+            total=$(jq '.results.results | length' results.json 2>/dev/null || echo 0)
+            mean=$(jq '[.results.results[]? | .gradingResult.score // 0] | (if length > 0 then (add / length) else "n/a" end)' results.json 2>/dev/null || echo "n/a")
           else
             pass=0; total=0; mean="n/a"
           fi
+          # Write the comment body to a file, not to GITHUB_OUTPUT. Markdown
+          # content with backticks (e.g., `results.json`) breaks when expanded
+          # via ${{ steps.render.outputs.comment }} into a bash double-quoted
+          # string — bash treats the backticks as command substitution and
+          # exits 127 on unknown commands.
           {
-            echo "comment<<EOF"
             echo "**Eval gate — ${{ matrix.agent }}**"
             echo ""
             echo "- Tests: ${pass}/${total} passing"
@@ -170,9 +176,8 @@ jobs:
             if [ "${no_baseline:-false}" = "true" ]; then
               echo "- Baseline: not yet committed; informational run only."
             fi
-            echo "- Full \`results.json\` uploaded as workflow artifact."
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+            echo "- Full results.json uploaded as workflow artifact."
+          } > /tmp/eval-comment-body.md
 
       - name: Upload results
         if: always()
@@ -191,8 +196,15 @@ jobs:
           AGENT: ${{ matrix.agent }}
         run: |
           set -euo pipefail
+          # Build the comment body in a file to keep markdown out of the bash
+          # source. Reads the rendered body produced by the previous step.
           marker="<!-- eval-gate: ${AGENT} ${HEAD_SHA} -->"
-          body="${marker}"$'\n\n'"${{ steps.render.outputs.comment }}"
+          {
+            echo "${marker}"
+            echo ""
+            cat /tmp/eval-comment-body.md
+          } > /tmp/eval-final-body.md
+          body="$(cat /tmp/eval-final-body.md)"
           existing_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
             --jq "[.[] | select(.body | startswith(\"<!-- eval-gate: ${AGENT}\"))] | last.id // \"\"")
           if [ -n "$existing_id" ]; then
