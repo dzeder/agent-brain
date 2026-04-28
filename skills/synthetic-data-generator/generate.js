@@ -319,6 +319,10 @@ async function main() {
 
   const distribution = summarizeDistribution(tagged, validatorSchema);
   const warnings = [
+    // Surface the documented v0.9.0 contract gap on every run so consumers
+    // know to validate output against the target schema themselves until
+    // AJV validation lands. Tracked in CHANGELOG.md "Known gaps at v0.9.0".
+    'schema_validation_skipped: AJV record validation not implemented in CLI v0.9.0; validate output against target schema before use',
     ...piiWarnings,
     ...(dedupeLoss > 0 ? [`deduplication: ${dedupeLoss} record(s) collapsed`] : []),
     ...(tagged.length < count * MIN_SURVIVAL_RATIO

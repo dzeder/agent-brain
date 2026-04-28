@@ -13,9 +13,9 @@ description: >
   /security/injection-corpus/ and must be hand-curated.
 version: 0.9.0
 inputs:
-  - schema: /schemas/skills/synthetic-data-generator/input/v1.0.0.json
+  - schema: /schemas/skills/synthetic-data-generator-input/v0.9.0.json
 outputs:
-  - schema: /schemas/skills/synthetic-data-generator/output/v1.0.0.json
+  - schema: /schemas/skills/synthetic-data-generator-output/v0.9.0.json
   - path: <caller-supplied output_path>  # written by the CLI; agent variant returns the records inline
 compatible_agent_layers: [worker, manager]
 compatible_worker_types: [code_data_transforms, research_synthesis]
@@ -213,7 +213,7 @@ this skill.
 
 ## Output schema (what the skill returns)
 
-See `/schemas/skills/synthetic-data-generator/output/v1.0.0.json` for the
+See `/schemas/skills/synthetic-data-generator-output/v0.9.0.json` for the
 canonical schema. Summary:
 
 ```json

@@ -40,10 +40,10 @@
       "description": "Generate N synthetic records matching a target schema for use in eval golden datasets and dev-environment fixtures. Schema-aware, diversity-controlled, with PII guardrails. Three bundled templates: support-message, linear-issue, signed-output. Out-of-scope: adversarial / red-team inputs (use /security/injection-corpus/) and any data resembling real customers or real PII.",
       "location": "/skills/synthetic-data-generator/SKILL.md",
       "inputs": [
-        "/schemas/skills/synthetic-data-generator/input/v1.0.0.json"
+        "/schemas/skills/synthetic-data-generator-input/v0.9.0.json"
       ],
       "outputs": [
-        "/schemas/skills/synthetic-data-generator/output/v1.0.0.json"
+        "/schemas/skills/synthetic-data-generator-output/v0.9.0.json"
       ],
       "compatible_agent_layers": ["worker", "manager"],
       "compatible_worker_types": ["code_data_transforms", "research_synthesis"],
