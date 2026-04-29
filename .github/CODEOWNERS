@@ -1,0 +1,15 @@
+# CODEOWNERS — required reviewers for sensitive paths.
+#
+# Paths below match the "human-principal manual review required regardless of
+# automated gate result" rule in CLAUDE.md and README.md. Branch protection
+# on master enforces "Require review from Code Owners" for these paths.
+#
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-customizations/customizing-your-repository/about-code-owners
+
+/AGENT_PRODUCT_CYCLE.md       @dzeder
+/CLAUDE.md                    @dzeder
+/agents/pr-reviewer/          @dzeder
+/standards/                   @dzeder
+/.github/                     @dzeder
+/.github/CODEOWNERS           @dzeder
+/LICENSE                      @dzeder

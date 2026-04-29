@@ -92,4 +92,4 @@ in this repo.
 
 ## License
 
-TBD.
+MIT — see [LICENSE](./LICENSE).
