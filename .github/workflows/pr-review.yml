@@ -93,37 +93,27 @@ jobs:
             -f description="Agent skipped: ANTHROPIC_API_KEY not configured" \
             -f target_url="${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
 
-      - name: Check rate limit (1 review per PR per 5 minutes)
-        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true'
-        id: ratelimit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # Find the most recent comment from this workflow's bot user, if any.
-          last_ts=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
-            --jq '[.[] | select(.body | startswith("<!-- pr-reviewer:"))] | last.created_at // ""')
-          if [ -n "$last_ts" ]; then
-            now_epoch=$(date -u +%s)
-            last_epoch=$(date -u -d "$last_ts" +%s 2>/dev/null || python3 -c "import datetime,sys; print(int(datetime.datetime.fromisoformat(sys.argv[1].replace('Z','+00:00')).timestamp()))" "$last_ts")
-            delta=$((now_epoch - last_epoch))
-            if [ "$delta" -lt 300 ]; then
-              echo "::notice::Rate limited: last review was ${delta}s ago (<300s)."
-              echo "skipped=true" >> "$GITHUB_OUTPUT"
-            fi
-          fi
+      # The rate-limit step was removed. The workflow's `concurrency` block
+      # (cancel-in-progress: true) already serializes per-PR runs and kills
+      # any in-flight review when a new commit arrives, so the rate-limit
+      # was redundant. The previous implementation read `last.created_at`
+      # of the existing pr-reviewer comment, but the workflow PATCHes the
+      # same comment on every run — `created_at` never moves, so the rate
+      # limit only ever fired within 5 minutes of the very first review on
+      # a PR, then cleared forever. It blocked legitimate retriggers
+      # (e.g., addressing review feedback within 5 minutes) without
+      # protecting against actual thrash, which `concurrency` already
+      # handles.
 
       - name: Checkout PR head
-        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true'
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Setup Node
-        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true'
         uses: actions/setup-node@v5
         with:
           node-version: '20'
@@ -131,12 +121,12 @@ jobs:
           cache-dependency-path: agents/pr-reviewer/package.json
 
       - name: Install agent deps
-        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true'
         working-directory: agents/pr-reviewer
         run: npm install --no-audit --no-fund
 
       - name: Stage PR diff and metadata
-        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true'
         id: stage
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -165,7 +155,7 @@ jobs:
           echo "metadata=/tmp/pr-review/metadata.json" >> "$GITHUB_OUTPUT"
 
       - name: Run PR Review Agent
-        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true'
         id: review
         working-directory: agents/pr-reviewer
         env:
@@ -195,7 +185,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload signed-output as artifact
-        if: always() && steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: always() && steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: pr-review-signed-output-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
@@ -203,7 +193,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Post or update PR comment
-        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -226,7 +216,7 @@ jobs:
           fi
 
       - name: Set status check based on verdict
-        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -247,7 +237,7 @@ jobs:
             -f target_url="${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
 
       - name: Fail the job on fail/escalate
-        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.ratelimit.outputs.skipped != 'true' && steps.review.outputs.verdict != '' && steps.review.outputs.verdict != 'pass'
+        if: steps.bypass.outputs.skipped != 'true' && steps.secret_check.outputs.missing != 'true' && steps.review.outputs.verdict != '' && steps.review.outputs.verdict != 'pass'
         run: |
           echo "::error::Verdict is ${VERDICT_VAL}; blocking merge until resolved."
           exit 1
