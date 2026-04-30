@@ -33,7 +33,7 @@ jobs:
       agents: ${{ steps.detect.outputs.agents }}
       secret_configured: ${{ steps.secret_check.outputs.configured }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -118,7 +118,7 @@ jobs:
         agent: ${{ fromJSON(needs.detect-affected-agents.outputs.agents) }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v5
         with:
