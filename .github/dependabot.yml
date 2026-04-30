@@ -1,0 +1,40 @@
+# Dependabot config — keep dependencies fresh on the two npm projects in
+# this repo (the pr-reviewer agent and the eval harness) plus the GitHub
+# Actions used in CI workflows. Weekly cadence: enough signal without
+# burying us in PRs.
+#
+# Each Dependabot PR runs through the standard pr-review.yml workflow.
+# PRs touching /agents/pr-reviewer/package.json will return verdict:
+# escalate (recursion rule); surface those in chat per
+# docs/runbooks/approval-flow.md.
+
+version: 2
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/agents/pr-reviewer"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "npm"
+    directory: "/evals"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
