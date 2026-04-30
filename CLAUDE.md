@@ -89,12 +89,9 @@ Do not re-litigate these. If you think one is wrong, open an ADR.
 
 ## Things not yet built (do not pretend they exist)
 
-- PR review agent (`/agents/pr-reviewer/`) — spec is in the doc, implementation is TODO
 - `/explain` Slack command — spec is in the doc, implementation is TODO
 - Nightly autodream n8n workflow — spec is in the doc, implementation is TODO
 - Knowledge ingestion pipeline — spec is in the doc, implementation is TODO
-- Synthetic data generator — must be built before any dev work in product repos
-- Security artifacts (`/security/`) — STRIDE templates, injection corpus, red-team library
 
 ## Environment variables
 
