@@ -1,0 +1,57 @@
+name: linear-link-check
+
+# Enforces "no orphan changes" from CLAUDE.md and the PR template's
+# "Mapped to:" requirement. Every PR must contain a Linear URL in its
+# body, or apply the `no-linear` label to opt out (the brain repo has
+# foundational work that pre-dates Linear scaffolding — see PR #12).
+#
+# Surfaces as a required status check named `linear-link`. Add to
+# branch protection's required_status_checks list once this workflow
+# has run on at least one PR (so the check name is known to GitHub).
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, labeled, unlabeled]
+
+permissions:
+  pull-requests: read
+  statuses: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Verify Linear link in PR body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+
+          if echo "$LABELS" | jq -e 'index("no-linear")' >/dev/null 2>&1; then
+            state=success
+            description="Skipped via no-linear label (foundational/pre-Linear work)."
+          else
+            body=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.body // ""')
+            # Match canonical Linear issue URL: linear.app/<workspace>/issue/<TEAM>-<NUM>
+            if echo "$body" | grep -qE 'https://linear\.app/[A-Za-z0-9_-]+/issue/[A-Z]+-[0-9]+'; then
+              state=success
+              description="Linear link found in PR body."
+            else
+              state=failure
+              description="No Linear link in PR body. Add a linear.app/.../issue/TEAM-NUM URL or apply 'no-linear' label."
+            fi
+          fi
+
+          gh api -X POST "repos/${REPO}/statuses/${HEAD_SHA}" \
+            -f state="$state" \
+            -f context="linear-link" \
+            -f description="$description" \
+            -f target_url="${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
+
+          [ "$state" = "success" ]
