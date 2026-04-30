@@ -67,19 +67,19 @@ Changes to `/agents/pr-reviewer/`, `/standards/`, or `CLAUDE.md` require
 human-principal manual review regardless of the automated gate result.
 
 Full PR rules: [CLAUDE.md → "Every PR must"](./CLAUDE.md#every-pr-must).
+Branch protection rules and how to triage automated alerts:
+[`docs/runbooks/branch-protection.md`](./docs/runbooks/branch-protection.md).
+How approvals get surfaced (in chat, not via GitHub UI):
+[`docs/runbooks/approval-flow.md`](./docs/runbooks/approval-flow.md).
 
 ## Status — what's not yet built
 
 These are specced in `AGENT_PRODUCT_CYCLE.md` but not implemented. Do not
 pretend they exist:
 
-- PR review agent (`/agents/pr-reviewer/`)
 - `/explain` Slack command
 - Nightly autodream n8n workflow
 - Knowledge ingestion pipeline
-- Synthetic data generator (must be built before any dev work in product repos)
-- Security artifacts (`/security/` STRIDE templates, injection corpus,
-  red-team library)
 
 Known architectural gaps that are real limitations — not yet resolved — are
 listed in [`CLAUDE.md` → "Known gaps"](./CLAUDE.md#known-gaps-acknowledged-not-yet-resolved).
