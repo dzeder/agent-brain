@@ -13,6 +13,15 @@ on:
   pull_request:
     types: [opened, edited, synchronize, labeled, unlabeled]
 
+# Serialize per-PR runs and cancel any in-flight one when a new event
+# arrives. Without this, the `opened` and `labeled` events fired in
+# rapid succession race to post a status check; whichever finishes
+# last wins, which on the lockdown sequence flipped the no-linear
+# success back to failure.
+concurrency:
+  group: linear-link-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   pull-requests: read
   statuses: write
