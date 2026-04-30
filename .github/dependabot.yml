@@ -5,8 +5,8 @@
 #
 # Each Dependabot PR runs through the standard pr-review.yml workflow.
 # PRs touching /agents/pr-reviewer/package.json will return verdict:
-# escalate (recursion rule); surface those in chat per
-# docs/runbooks/approval-flow.md.
+# escalate (recursion rule); surface those in chat per the canonical
+# approval-flow runbook at docs/runbooks/approval-flow.md (PR #16).
 
 version: 2
 
