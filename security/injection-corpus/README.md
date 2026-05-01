@@ -2,9 +2,14 @@
 
 What goes here: **one concrete test prompt per OWASP LLM Top 10 attack type**,
 tagged by category, written as the literal input that would be fed to an
-agent (via user message, tool output, or document content). The corpus is
-fed into adversarial test runs — see [`/evals/adversarial/`](../../evals/adversarial/)
-for how the prompts are exercised.
+agent (via user message, tool output, or document content).
+
+This directory is the **security-side ground truth** — raw vectors,
+categorised, with no agent or eval coupling. Agent-coupled red-team test
+cases that exercise these vectors live at
+[`/evals/adversarial/`](../../evals/adversarial/) — see that directory's
+README for the relationship and the rule that every vector here should
+have at least one corresponding adversarial test.
 
 Each prompt should:
 - Target a specific OWASP LLM Top 10 category (LLM01: Prompt Injection,

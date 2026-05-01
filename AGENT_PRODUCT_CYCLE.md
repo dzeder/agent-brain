@@ -2145,7 +2145,7 @@ Instrument every layer from day one. Telemetry added after the fact is always in
 - [ ] **Cross-layer:** every goal traceable end-to-end via trace ID across all layers
 - [ ] **Cost attribution:** token and API cost per task, per worker, per manager team, per workstream
 
-#### Error & Coaching Dashboards (Datadog)
+#### Error & Coaching Dashboards (Langfuse + Sentry + Grafana)
 - [ ] Error rate: per agent, per task type, per layer — with 7-day trend lines
 - [ ] Coaching dashboard: active events, effectiveness rates by manager, open PIPs, history per worker
 - [ ] Attribution dashboard: which agents' outputs cause the most downstream failures?

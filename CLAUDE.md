@@ -63,7 +63,7 @@ require human-principal manual review regardless of automated gate result.
 /docs/postmortems/       ← Incident post-mortems
 /audits/                 ← Quarterly audit artifacts: /audits/YYYY-Qn/<type>.md
 /coaching/               ← Per-agent coaching history: /coaching/<agent-id>/history.md
-/prompts/                ← Versioned prompts: /prompts/<agent-id>/<agent-id>-v<semver>.md
+/prompts/                ← Per-agent example libraries (reference banks). Active agent prompts themselves live at /agents/<role>/<agent-id>-v<semver>.md.
 ```
 
 ## Architecture decisions already made

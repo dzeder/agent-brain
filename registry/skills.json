@@ -1,5 +1,5 @@
 {
-  "description": "Brain-repo skill registry — single source of truth per AGENT_PRODUCT_CYCLE.md §12 Skill Registry & Discovery. A skill belongs here only if it is used (or expected to be used) by 2+ products; product-specific skills live in their product repo. Required entry fields: skill_id, version, owner, description, location, inputs, outputs, compatible_agent_layers, tags, run_when, prerequisite. /skills/registry.json is currently a co-located duplicate carried from initial scaffolding; this file is canonical.",
+  "description": "Brain-repo skill registry — single source of truth per AGENT_PRODUCT_CYCLE.md §12 Skill Registry & Discovery. A skill belongs here only if it is used (or expected to be used) by 2+ products; product-specific skills live in their product repo. Required entry fields: skill_id, version, owner, description, location, inputs, outputs, compatible_agent_layers, tags, run_when, prerequisite.",
   "last_updated": "2026-04-27",
   "skills": [
     {
