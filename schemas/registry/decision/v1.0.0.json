@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "/schemas/registry/decision/v1.0.0.json",
+  "title": "Decision Record",
+  "description": "Schema mirror of the Notion decision-registry row defined in AGENT_PRODUCT_CYCLE.md §16 lines 2000-2024. Notion is the authoritative store; this schema enables client-side validation by the CEO agent, PR Anti-Drift gate, and manager agents before writing via the Notion MCP. Records are append-only — they are never deleted, only superseded by a new record that references this one in `superseded_by`.",
+  "type": "object",
+  "required": [
+    "decision_id",
+    "timestamp",
+    "product",
+    "layer",
+    "made_by",
+    "decision_type",
+    "title",
+    "context",
+    "decision",
+    "rationale",
+    "confidence",
+    "downstream_impact",
+    "status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "decision_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Auto-generated UUID. Referenced by related_decisions and superseded_by on other records."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the decision was made."
+    },
+    "product": {
+      "type": "string",
+      "description": "Which product repo this decision affects, or 'brain' for platform-level decisions.",
+      "examples": ["brain", "product-alpha", "product-beta"]
+    },
+    "layer": {
+      "type": "string",
+      "enum": ["ceo", "manager", "worker", "human", "pr-gate"],
+      "description": "Which layer of the system made or owned the decision."
+    },
+    "made_by": {
+      "type": "string",
+      "description": "agent_id (matches /registry/agents.json), or 'daniel' for human-principal decisions.",
+      "examples": ["ceo", "pr-reviewer", "daniel"]
+    },
+    "decision_type": {
+      "type": "string",
+      "enum": [
+        "architectural",
+        "prompt",
+        "trust",
+        "pip",
+        "hiring",
+        "routing",
+        "coaching",
+        "security",
+        "override"
+      ],
+      "description": "Decision category. 'override' covers manual overrides and kill-switch activations."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "One sentence — the decision itself."
+    },
+    "context": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What was happening when this decision was made."
+    },
+    "decision": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What was decided, precisely."
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why this option was chosen over the alternatives."
+    },
+    "alternatives": {
+      "type": "array",
+      "description": "Required if any alternatives were considered. Empty array allowed when no alternatives existed.",
+      "items": {
+        "type": "object",
+        "required": ["option", "why_rejected"],
+        "additionalProperties": false,
+        "properties": {
+          "option": { "type": "string", "minLength": 1 },
+          "why_rejected": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Decision-maker's confidence in the decision at time of recording."
+    },
+    "downstream_impact": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What this decision affects going forward."
+    },
+    "related_decisions": {
+      "type": "array",
+      "description": "decision_ids this builds on or supersedes.",
+      "items": { "type": "string", "format": "uuid" }
+    },
+    "trace_link": {
+      "type": "string",
+      "format": "uri",
+      "description": "Langfuse trace URL if applicable."
+    },
+    "linear_link": {
+      "type": "string",
+      "format": "uri",
+      "description": "Linear issue URL if applicable."
+    },
+    "pr_link": {
+      "type": "string",
+      "format": "uri",
+      "description": "GitHub PR URL if applicable."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "superseded", "deprecated"],
+      "description": "Lifecycle state. Records are never deleted — only superseded."
+    },
+    "superseded_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "decision_id of the later decision that reversed or replaced this one. Required when status=superseded."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "superseded" } }, "required": ["status"] },
+      "then": { "required": ["superseded_by"] }
+    }
+  ]
+}
